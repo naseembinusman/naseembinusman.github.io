@@ -1158,7 +1158,7 @@ function predict() {
 
   // 5) Show results
   document.getElementById('results').style.display = 'block';
-  document.getElementById('res_q_base').textContent = `${q_input.toFixed(2)} GPM`;
+  document.getElementById('res_q_base').textContent = `${q_input.toFixed(0)} GPM`;
   document.getElementById('res_h_base').textContent = `${H_curve_newRPM.toFixed(2)} m / ${(H_curve_newRPM * 0.0981).toFixed(2)} bar`;
   document.getElementById('res_p_base').textContent = `${P_curve_newRPM.toFixed(3)} kW / ${(P_curve_newRPM / 0.746).toFixed(3)} hp`;
   document.getElementById('res_eff_base').textContent = isNaN(eff_base) ? 'N/A' : eff_base.toFixed(2) + ' %';
