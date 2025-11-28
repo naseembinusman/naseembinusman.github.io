@@ -87,7 +87,6 @@
 
 <hr style="margin-top:20px;">
 
-<!-- 📌 Embed your XML database directly inside HTML -->
 <script id="pumpXML" type="text/xml">
 <PumpDatabase>
   <PumpModel name="EH2515250">
@@ -2368,7 +2367,7 @@ function onPumpChange() {
   const gpmList = pump.dataPoints.map(d => d.gpm);
   const min = Math.min(...gpmList);
   const max = Math.max(...gpmList);
-  document.getElementById('curveRange').textContent = `${min.toFixed(2)} — ${max.toFixed(2)} GPM`;
+  document.getElementById('curveRange').textContent = `${(min * 1.1).toFixed(2)} — ${(max * 0.7).toFixed(2)} GPM`;
 }
 
 
