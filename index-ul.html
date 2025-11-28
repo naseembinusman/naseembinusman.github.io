@@ -2579,8 +2579,8 @@ function predict() {
   const gpmList = pump.dataPoints.map(d => d.gpm);
   const minG = Math.min(...gpmList);
   const maxG = Math.max(...gpmList);
-  const minG_new = minG * ratioRPM;
-  const maxG_new = maxG * ratioRPM;
+  const minG_new = minG * ratioRPM * D_Ratio;
+  const maxG_new = maxG * ratioRPM * D_Ratio;
   const inRange = (Q_equiv >= minG_new - 1e-6) && (Q_equiv <= maxG_new + 1e-6);
 
   // 5) Show results
