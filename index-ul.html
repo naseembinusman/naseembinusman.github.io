@@ -32,7 +32,8 @@
 <div id="baseInfo" class="card" style="display:none;">
   <strong>Pump base RPM:</strong> <span id="baseRpmText"></span><br>
   <strong>Impeller size:</strong> <span id="impeller_size"></span><br>
-  <strong>Curve flow range (GPM at base RPM):</strong> <span id="curveRange"></span>
+  <strong>Flow range at base RPM (GPM):</strong> <span id="curveRange"></span><br>
+  <strong>Pressure range at base RPM (BAR):</strong> <span id="headRange"></span>
 </div>
 
 <div id="inputSection" class="card" style="display:none;">
@@ -2369,9 +2370,13 @@ function onPumpChange() {
   document.getElementById('impeller_size').textContent = impSize ? impSize : '—';
   // curve range (min and max GPM at base RPM)
   const gpmList = pump.dataPoints.map(d => d.gpm);
+  const headList = pump.dataPoints.map(d => d.head_m);
   const min = Math.min(...gpmList);
   const max = Math.max(...gpmList);
+  const minh = Math.min(...headList);
+  const maxh = Math.max(...headList);
   document.getElementById('curveRange').textContent = `${(min).toFixed(2)} — ${(max).toFixed(2)} GPM`;
+  document.getElementById('headRange').textContent = `${(maxh * 0.0981).toFixed(2)} — ${(minh * 0.0981).toFixed(2)} bar`;
 }
 
 
