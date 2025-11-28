@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Al Aman Pump Calculator by Naseem Usman</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; padding: 18px; max-width:1000px; margin:auto; }
+  label { display:block; margin-top:10px; font-weight:600; }
+  select, input { padding:8px; font-size:15px; margin-top:6px; width:250px; }
+  button { padding:8px 14px; font-size:15px; margin-top:12px; cursor:pointer; }
+  .row { display:flex; gap:20px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+  .card { border:1px solid #ddd; padding:12px; border-radius:6px; margin-top:14px; }
+  table { width:100%; border-collapse:collapse; margin-top:12px }
+  th, td { border:1px solid #ccc; padding:8px; text-align:center; }
+  th { background:#f4f4f4; }
+  .warn { color: #8a2b00; font-weight:700; margin-top:10px; }
+  .ok { color: #067d00; font-weight:700; margin-top:10px; }
+  small { color:#555; }
+</style>
+</head>
+<body>
+
+<h1>Al Aman Pump Performance Calculator by Naseem Usman</h1>
+<p>Pick a pump, enter operating Flow (GPM) and Pressure (bar) at the pump's <strong>base RPM</strong>, then enter a <strong>new speed (RPM)</strong> to predict performance at that speed.</p>
+
+<label for="pumpSelect">Select Pump Model</label>
+<select id="pumpSelect" onchange="onPumpChange()">
+  <option value="">-- choose pump --</option>
+</select>
+
+<div id="baseInfo" class="card" style="display:none;">
+  <strong>Pump base RPM:</strong> <span id="baseRpmText"></span><br>
+  <strong>Impeller size:</strong> <span id="impeller_size"></span><br>
+  <strong>Curve flow range (GPM at base RPM):</strong> <span id="curveRange"></span>
+</div>
+
+<div id="inputSection" class="card" style="display:none;">
+  <h3>Operating conditions (at <span id="baseRpmLabel"></span>)</h3>
+  <div class="row">
+    <div>
+      <label>Rated Flow (GPM)</label>
+      <input id="inputFlow" type="number" step="any" placeholder="in gpm">
+    </div>
+    <div>
+      <label>Rated Pressure (bar) </label>
+      <input id="inputHead" type="number" step="any" placeholder="in bar">
+    </div>
+    <div>
+      <label>Rated Speed (RPM)</label>
+      <input id="inputSpeed" type="number" step="any" placeholder="e.g. 3500" value="2900">
+    </div>
+  </div>
+
+  <div style="margin-top:12px;">
+    <button onclick="predict()">Predict at new speed</button>
+    <button onclick="resetResults()" style="margin-left:10px;">Clear results</button>
+  </div>
+  <small>Note: enter Flow & Head measured at the pump's base RPM (shown above). If you have measured at a different RPM, please adjust first.</small>
+</div>
+
+<div id="results" style="display:none;">
+  <div id="statusMsg"></div>
+
+  <div class="card">
+    <h3>Predicted Values</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Quantity</th>
+          <th>100% Flow</th>
+          <th>150% Flow</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Flow (GPM)</td><td id="res_q_base"></td><td id="res_q_new"></td></tr>
+        <tr><td>Head (m)</td><td id="res_h_base"></td><td id="res_h_new"></td></tr>
+        <tr><td>Power (kW)</td><td id="res_p_base"></td><td id="res_p_new"></td></tr>
+        <tr><td>Efficiency (%)</td><td id="res_eff_base"></td><td id="res_eff_new"></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" id="curveCheckCard" style="display:none;">
+    <h3>Curve Check</h3>
+    <div id="curveCheck"></div>
+  </div>
+</div>
+
+<hr style="margin-top:20px;">
+
+<script id="pumpXML" type="text/xml">
+<PumpDatabase>
+  <PumpModel name="AM 65-26ES">
+    <Specifications>
+      <D_min>215.0</D_min>
+      <D_max>264.0</D_max>
+      <Base_RPM>2900.0</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>100.8</M>
+        <KW>29.489</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>105.01</GPM>
+        <M>100.11</M>
+        <KW>37.885</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>201.87</GPM>
+        <M>98.12</M>
+        <KW>43.91</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>244.38</GPM>
+        <M>96.94</M>
+        <KW>45.172</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>291.84</GPM>
+        <M>95.16</M>
+        <KW>48.28</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>365.12</GPM>
+        <M>91.53</M>
+        <KW>52.979</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>389.77</GPM>
+        <M>90.16</M>
+        <KW>53.857</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>417.34</GPM>
+        <M>88.37</M>
+        <KW>55.886</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>438.01</GPM>
+        <M>87.41</M>
+        <KW>57.139</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>488.78</GPM>
+        <M>87.32</M>
+        <KW>59.747</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>547.62</GPM>
+        <M>80.34</M>
+        <KW>63.849</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>639.23</GPM>
+        <M>72.8</M>
+        <KW>68.503</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>697.63</GPM>
+        <M>69.58</M>
+        <KW>69.472</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>783.14</GPM>
+        <M>56.36</M>
+        <KW>73.824</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>859.59</GPM>
+        <M>22.43</M>
+        <KW>80.129</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>865.33</GPM>
+        <M>14.21</M>
+        <KW>79.963</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>866.99</GPM>
+        <M>17.65</M>
+        <KW>79.246</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="AM 40-26">
+    <Specifications>
+      <D_min>205</D_min>
+      <D_max>264.0</D_max>
+      <Base_RPM>2900.0</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>95.714</M>
+        <KW>8.5</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>40</GPM>
+        <M>95.357</M>
+        <KW>10.5</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>80</GPM>
+        <M>94.285</M>
+        <KW>12.666</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>120</GPM>
+        <M>91.071</M>
+        <KW>14.666</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>160</GPM>
+        <M>86.428</M>
+        <KW>16.5</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>200</GPM>
+        <M>79.285</M>
+        <KW>18.5</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>240</GPM>
+        <M>67.85714</M>
+        <KW>20.5</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>266</GPM>
+        <M>58.214</M>
+        <KW>21.666</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="AM 50-32H">
+    <Specifications>
+      <D_min>255.0</D_min>
+      <D_max>329.0</D_max>
+      <Base_RPM>2900.0</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>162</M>
+        <KW>25</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>79.25186241876683</GPM>
+        <M>160</M>
+        <KW>30</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>158.50372483753367</GPM>
+        <M>157.5</M>
+        <KW>36</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>237.75558725630052</GPM>
+        <M>152.5</M>
+        <KW>42.5</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>317.00744967506733</GPM>
+        <M>145</M>
+        <KW>48.5</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>396.2593120938342</GPM>
+        <M>136</M>
+        <KW>55</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>475.51117451260103</GPM>
+        <M>123</M>
+        <KW>62</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>507.2119194801078</GPM>
+        <M>118</M>
+        <KW>65</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="PA 65-26">
+    <Specifications>
+      <D_min>215.0</D_min>
+      <D_max>264.0</D_max>
+      <Base_RPM>2900.0</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>100</M>
+        <KW>16.4</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>158.50372483753367</GPM>
+        <M>100</M>
+        <KW>23.8</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>317.00744967506733</GPM>
+        <M>98.33333333333333</M>
+        <KW>30.5</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>475.51117451260103</GPM>
+        <M>92.5</M>
+        <KW>37.8</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>634.0148993501347</GPM>
+        <M>82.5</M>
+        <KW>45</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>726.6761768901569</GPM>
+        <M>74.16666666666667</M>
+        <KW>48.8</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="PA 65-32">
+    <Specifications>
+      <D_min>255.0</D_min>
+      <D_max>329.0</D_max>
+      <Base_RPM>2900</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>147</M>
+        <KW>30</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>158.50372483753367</GPM>
+        <M>146</M>
+        <KW>42</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>317.00744967506733</GPM>
+        <M>144.5</M>
+        <KW>54</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>475.51117451260103</GPM>
+        <M>139</M>
+        <KW>66</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>634.0148993501347</GPM>
+        <M>128</M>
+        <KW>78</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>729.1171342526549</GPM>
+        <M>119</M>
+        <KW>85</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="AM 80-26">
+    <Specifications>
+      <D_min>215.0</D_min>
+      <D_max>264.0</D_max>
+      <Base_RPM>2900.0</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>100.41666666666667</M>
+        <KW>28.42105263157895</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>100</GPM>
+        <M>100</M>
+        <KW>31.57894736842105</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>200</GPM>
+        <M>99.58333333333333</M>
+        <KW>34.73684210526316</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>300</GPM>
+        <M>98.75</M>
+        <KW>38.421052631578945</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>400</GPM>
+        <M>97.5</M>
+        <KW>41.578947368421055</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>500</GPM>
+        <M>95.41666666666667</M>
+        <KW>45.526315789473685</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>600</GPM>
+        <M>92.5</M>
+        <KW>49.10526315789474</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>700</GPM>
+        <M>89.16666666666667</M>
+        <KW>52.89473684210526</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>800</GPM>
+        <M>85.41666666666667</M>
+        <KW>56.578947368421055</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>900</GPM>
+        <M>80.41666666666667</M>
+        <KW>60.26315789473684</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1000</GPM>
+        <M>74.16666666666667</M>
+        <KW>63.421052631578945</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1023.33333</GPM>
+        <M>72.5</M>
+        <KW>64.47368421052632</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="PA 100-26">
+    <Specifications>
+      <D_min>215.0</D_min>
+      <D_max>264.0</D_max>
+      <Base_RPM>2900.0</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>96.84210526315789</M>
+        <KW>51.271186440677965</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>317.00744967506733</GPM>
+        <M>97.10526315789474</M>
+        <KW>60.04237288135593</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>634.0148993501347</GPM>
+        <M>95.78947368421052</M>
+        <KW>69.15254237288136</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>951.0223490252021</GPM>
+        <M>91.84210526315789</M>
+        <KW>78.72881355932203</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1268.0297987002693</GPM>
+        <M>87.36842105263158</M>
+        <KW>88.72881355932203</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1585.0372483753367</GPM>
+        <M>72.63157894736842</M>
+        <KW>98.51694915254237</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1743.5409732128705</GPM>
+        <M>68.6842105263158</M>
+        <KW>100.63559322033899</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="PA 100-32">
+    <Specifications>
+      <D_min>255.0</D_min>
+      <D_max>329.0</D_max>
+      <Base_RPM>2900.0</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>148.5185185185185</M>
+        <KW>55.55555555555556</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>317.00744967506733</GPM>
+        <M>151.11111111111111</M>
+        <KW>75</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>634.0148993501347</GPM>
+        <M>151.4814814814815</M>
+        <KW>96.66666666666667</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>951.0223490252021</GPM>
+        <M>145.92592592592592</M>
+        <KW>125</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1268.0297987002693</GPM>
+        <M>130</M>
+        <KW>150</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1545.4113171659533</GPM>
+        <M>110.74074074074075</M>
+        <KW>170.37037037037038</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="PA 125-26H">
+    <Specifications>
+      <D_min>225.0</D_min>
+      <D_max>264.0</D_max>
+      <Base_RPM>2900.0</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>94.43478260869566</M>
+        <KW>58.69565217391305</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>697.4163892851482</GPM>
+        <M>93.91304347826087</M>
+        <KW>80.21739130434783</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1394.8327785702963</GPM>
+        <M>91.82608695652173</M>
+        <KW>102.71739130434783</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2092.2491678554447</GPM>
+        <M>86.34782608695652</M>
+        <KW>124.23913043478261</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2789.6655571405927</GPM>
+        <M>74.08695652173913</M>
+        <KW>145.76086956521738</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>3487.081946425741</GPM>
+        <M>56.608695652173914</M>
+        <KW>167.2826086956522</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>4010.144238389602</GPM>
+        <M>43.56521739130435</M>
+        <KW>181.95652173913044</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="150 x 125-315">
+    <Specifications>
+      <D_min>274.0</D_min>
+      <D_max>325.0</D_max>
+      <Base_RPM>2900.0</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>145.2</M>
+        <KW>45</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>317.00744967506733</GPM>
+        <M>146.4</M>
+        <KW>63.82867841288585</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>634.0148993501347</GPM>
+        <M>147.2</M>
+        <KW>103.1423609013846</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>951.0223490252021</GPM>
+        <M>146.4</M>
+        <KW>132.56725516522448</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1268.0297987002693</GPM>
+        <M>144</M>
+        <KW>150.67753592550102</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1585.0372483753367</GPM>
+        <M>140</M>
+        <KW>171.67036970678828</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1902.0446980504041</GPM>
+        <M>133.6</M>
+        <KW>187.22580728838295</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2219.0521477254715</GPM>
+        <M>124.4</M>
+        <KW>203.38851420499486</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2536.0595974005387</GPM>
+        <M>112.4</M>
+        <KW>212.55214656157523</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2853.0670470756063</GPM>
+        <M>97</M>
+        <KW>228.3706403870875</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>3170.0744967506735</GPM>
+        <M>78</M>
+        <KW>255.0531207072283</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="125-250H-2900">
+    <Specifications>
+      <D_min>220.0</D_min>
+      <D_max>280.0</D_max>
+      <Base_RPM>2900</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>98.5</M>
+        <KW>35</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>440.5</GPM>
+        <M>98.3</M>
+        <KW>45</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>881</GPM>
+        <M>97</M>
+        <KW>80</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1321.5</GPM>
+        <M>94.3</M>
+        <KW>110</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1762</GPM>
+        <M>90</M>
+        <KW>130</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2202.5</GPM>
+        <M>83.5</M>
+        <KW>148</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2643</GPM>
+        <M>74.5</M>
+        <KW>159</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2907.3</GPM>
+        <M>67.5</M>
+        <KW>161</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="LBS 100-315">
+    <Specifications>
+      <D_min>264.0</D_min>
+      <D_max>329.0</D_max>
+      <Base_RPM>2900.0</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>153.61111111111111</M>
+        <KW>57.5</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>264</GPM>
+        <M>153.33333333333334</M>
+        <KW>72.5</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>528</GPM>
+        <M>151.66666666666666</M>
+        <KW>90</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>792</GPM>
+        <M>147.55555555555554</M>
+        <KW>110</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1056</GPM>
+        <M>138.88888888888889</M>
+        <KW>127.5</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1320</GPM>
+        <M>126.11111111111111</M>
+        <KW>140</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1584</GPM>
+        <M>105</M>
+        <KW>157.5</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1752.96</GPM>
+        <M>86.11111111111111</M>
+        <KW>162.5</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="LBS 100-400">
+    <Specifications>
+      <D_min>334</D_min>
+      <D_max>414.0</D_max>
+      <Base_RPM>2915.0</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>251.8</M>
+        <KW>140.8</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>200</GPM>
+        <M>250.9</M>
+        <KW>158.30903790087464</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>400</GPM>
+        <M>250</M>
+        <KW>175.80174927113703</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>600</GPM>
+        <M>249.1</M>
+        <KW>194.16909620991254</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>800</GPM>
+        <M>246.4</M>
+        <KW>213.1195335276968</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1000</GPM>
+        <M>242.4</M>
+        <KW>235</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1200</GPM>
+        <M>236.5530294117647</M>
+        <KW>253.35276967930028</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1400</GPM>
+        <M>228.5</M>
+        <KW>279.59183673469386</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1600</GPM>
+        <M>217.66476938298257</M>
+        <KW>292.7113702623907</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1800</GPM>
+        <M>203.27369185105235</M>
+        <KW>311.6618075801749</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2000</GPM>
+        <M>183.4862385321101</M>
+        <KW>330.90379008746356</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2181</GPM>
+        <M>161.89962223421477</M>
+        <KW>349.56268221574345</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+  <PumpModel name="LBS 125-250">
+    <Specifications>
+      <D_min>214</D_min>
+      <D_max>264.0</D_max>
+      <Base_RPM>2900.0</Base_RPM>
+    </Specifications>
+    <PerformanceData>
+      <DataPoint>
+        <GPM>0</GPM>
+        <M>97.07163376888147</M>
+        <KW>65.79881656804733</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>200</GPM>
+        <M>97.30330831248261</M>
+        <KW>70.53254437869822</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>400</GPM>
+        <M>97.07163376888147</M>
+        <KW>75.26627218934911</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>600</GPM>
+        <M>96.83995922528032</M>
+        <KW>80</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>800</GPM>
+        <M>96.37661013807802</M>
+        <KW>84.73372781065089</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1000</GPM>
+        <M>95.44991196367342</M>
+        <KW>90.6508875739645</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1200</GPM>
+        <M>94.52321378926884</M>
+        <KW>96.5680473372781</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1400</GPM>
+        <M>92.66981744045964</M>
+        <KW>103.4319526627219</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1600</GPM>
+        <M>89.42637383004356</M>
+        <KW>108.16568047337279</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>1800</GPM>
+        <M>86.18293021962747</M>
+        <KW>114.67455621301775</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2000</GPM>
+        <M>82.01278843480678</M>
+        <KW>120</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2200</GPM>
+        <M>76.9159484755815</M>
+        <KW>124.73372781065089</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2400</GPM>
+        <M>70.89241034195163</M>
+        <KW>129.46745562130178</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2600</GPM>
+        <M>63.94217403391715</M>
+        <KW>133.01775147928993</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2800</GPM>
+        <M>56.06523955147808</M>
+        <KW>136.5680473372781</KW>
+      </DataPoint>
+      <DataPoint>
+        <GPM>2967</GPM>
+        <M>48.65165415624131</M>
+        <KW>137.75147928994082</KW>
+      </DataPoint>
+    </PerformanceData>
+  </PumpModel>
+</PumpDatabase>
+</script>
+
+
+<script>
+/* --- Helper: Parse XML from script block --- */
+function parseXMLFromScript() {
+  const xmlText = document.getElementById('pumpXML').textContent.trim();
+  return new DOMParser().parseFromString(xmlText, 'application/xml');
+}
+
+/* --- Read xml, fill dropdown --- */
+const xmlDoc = parseXMLFromScript();
+
+function getPumpModels() {
+  return Array.from(xmlDoc.getElementsByTagName('PumpModel')).map(pm => {
+    const name = pm.getAttribute('name');
+    const baseRpmNode = pm.querySelector('Specifications > Base_RPM');
+    const baseRpm = baseRpmNode ? parseFloat(baseRpmNode.textContent) : null;
+    const baseDNode = pm.querySelector('Specifications > D_max');
+    const baseD = baseDNode ? parseFloat(baseDNode.textContent) : null;
+    const MinDNode = pm.querySelector('Specifications > D_min');
+    const MinD = MinDNode ? parseFloat(MinDNode.textContent) : null;  
+    const dataPoints = Array.from(pm.querySelectorAll('PerformanceData > DataPoint')).map(dp => ({
+      gpm: parseFloat(dp.getElementsByTagName('GPM')[0].textContent),
+      head_m: parseFloat(dp.getElementsByTagName('M')[0].textContent),
+      kw: parseFloat(dp.getElementsByTagName('KW')[0].textContent)
+    }));
+    return { name, baseRpm, baseD, MinD, dataPoints, xmlNode: pm };
+  });
+}
+
+const pumps = getPumpModels();
+
+function populateDropdown() {
+  const sel = document.getElementById('pumpSelect');
+  pumps.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+}
+populateDropdown();
+
+/* --- When pump changes --- */
+function onPumpChange() {
+  const sel = document.getElementById('pumpSelect');
+  const name = sel.value;
+  if (!name) {
+    document.getElementById('inputSection').style.display = 'none';
+    document.getElementById('baseInfo').style.display = 'none';
+    return;
+  }
+
+  const pump = pumps.find(p => p.name === name);
+  document.getElementById('inputSection').style.display = 'block';
+  document.getElementById('baseInfo').style.display = 'block';
+  document.getElementById('baseRpmText').textContent = pump.baseRpm ? pump.baseRpm.toFixed(0) + ' RPM' : '—';
+  document.getElementById('baseRpmLabel').textContent = pump.baseRpm ? pump.baseRpm.toFixed(0) + ' RPM' : 'base RPM';
+  const impSize = pump.MinD + " mm - " + pump.baseD + " mm";
+  document.getElementById('impeller_size').textContent = impSize ? impSize : '—';
+  // curve range (min and max GPM at base RPM)
+  const gpmList = pump.dataPoints.map(d => d.gpm);
+  const min = Math.min(...gpmList);
+  const max = Math.max(...gpmList);
+  document.getElementById('curveRange').textContent = `${(min).toFixed(2)} — ${(max).toFixed(2)} GPM`;
+}
+
+
+function interpolateHead(flow, head, flow_p) {
+  if (flow_p <= flow[0]) {
+    return { head_m: head[0], note: 'below_range' };
+  }
+  if (flow_p >= flow[flow.length - 1]) {
+    return { head_m: head[flow.length - 1], note: 'above_range' };
+  }
+
+  for (let i = 0; i < flow.length - 1; i++) {
+    const a = flow[i], b = flow[i + 1];
+    if (flow_p >= a && flow_p <= b) {
+      const t = (flow_p - a) / (b - a);
+      const head_m = head[i] + t * (head[i + 1] - head[i]);      
+      return head_m;
+    }
+  }
+}
+
+
+function correctedD(flow, head, flow_p, head_p, D_min, D_max, D_initial,ratioRPM) {
+  let D = D_initial;
+  const step = 0.1;       // increment/decrement step
+  const tolerance = 0.01; // acceptable difference for head and flow
+  let iterations = 0;
+  const maxIterations = 2000;
+  let DR = D / D_max;
+  let tflow = [];
+  let thead = [];
+
+  for (i=0;i<flow.length-1;i++){    
+    tflow[i] = flow[i] * DR * ratioRPM;
+    thead[i] = head[i] * DR * DR  * ratioRPM * ratioRPM;
+  }
+
+  let h_at_D = interpolateHead(tflow, thead, flow_p);  
+
+  while ((Math.abs(h_at_D - head_p) > tolerance) && iterations < maxIterations) {
+
+    if (h_at_D < head_p) {
+      D += step; // increase D
+    } else {
+      D -= step; // decrease D
+    }
+
+    DR = D / D_max;
+    for (i=0;i<flow.length-1;i++){
+      tflow[i] = flow[i];      
+      thead[i] = head[i];
+    }
+    for (i=0;i<flow.length-1;i++){
+      tflow[i] = flow[i] * DR * ratioRPM;      
+      thead[i] = head[i] * DR * DR * ratioRPM * ratioRPM;
+    }
+
+    h_at_D = interpolateHead(tflow, thead, flow_p);    
+
+    iterations++;
+  }
+
+  if (iterations === maxIterations) {
+    console.warn("Maximum iterations reached, solution may not be accurate");
+  }
+
+  return D; // only return corrected D
+}
+
+
+function interpolateHP(flow, head, kw, flow_p) {
+  if (flow_p <= flow[0]) {
+    console.warn("below_range");
+    return { head_m: head[0], kw_p: kw[0], note: 'below_range' };
+  }
+  if (flow_p >= flow[flow.length - 1]) {
+    console.warn("above_range");
+    return { head_m: head[flow.length - 1], kw_p: kw[flow.length - 1], note: 'above_range' };
+  }
+
+  for (let i = 0; i < flow.length - 1; i++) {
+    const a = flow[i], b = flow[i + 1];
+    if (flow_p >= a && flow_p <= b) {
+      const t = (flow_p - a) / (b - a);
+      const head_m = head[i] + t * (head[i + 1] - head[i]);
+      const kw_p = kw[i] + t * (kw[i + 1] - kw[i]);
+      return { head_m, kw_p, note: 'interpolated' };
+    }
+  }  
+}
+
+/* --- Utility: linear interpolation for KW (and head if needed) vs GPM --- */
+function interpAtFlow(dataPoints, flow) {
+  // dataPoints: array sorted by gpm ascending (should be from XML)
+  const sorted = dataPoints.slice().sort((a,b) => a.gpm - b.gpm);
+  if (flow <= sorted[0].gpm) return { head_m: sorted[0].head_m, kw: sorted[0].kw, note: 'below_range' };
+  if (flow >= sorted[sorted.length-1].gpm) return { head_m: sorted[sorted.length-1].head_m, kw: sorted[sorted.length-1].kw, note: 'above_range' };
+
+  for (let i=0;i<sorted.length-1;i++){
+    const a = sorted[i], b = sorted[i+1];
+    if (flow >= a.gpm && flow <= b.gpm) {
+      const t = (flow - a.gpm) / (b.gpm - a.gpm);
+      const head_m = a.head_m + t*(b.head_m - a.head_m);
+      const kw = a.kw + t*(b.kw - a.kw);
+      return { head_m, kw, note: 'interpolated' };
+    }
+  }
+  // fallback
+  return { head_m: sorted[0].head_m, kw: sorted[0].kw, note: 'fallback' };
+}
+
+/* --- Physics & Affinity laws --- */
+/* Affinity:
+   Q ∝ N
+   H ∝ N^2
+   P ∝ N^3
+   We'll treat input Flow and Head as measured at base RPM (pump.baseRpm).
+   Steps:
+   1) Given userFlow (at baseRPM), we find KW_base by interpolation of the pump curve at that flow.
+   2) Scale Q_new = userFlow * (N_new / N_base)
+      H_new = head_base * (N_new / N_base)^2
+      P_new = KW_base * (N_new / N_base)^3
+   3) Efficiency uses hydraulic power: hydraulic_kW = (Q_gpm * H_ft / 3960) * 0.746
+      Efficiency = hydraulic_kW / electrical_kW * 100
+      Convert head (m) -> ft: 1 m = 3.28084 ft
+*/
+function metersToFeet(m){ return m * 3.28084; }
+function bartometer(b){ return b / 0.0981;  }
+
+function computeEfficiency(q_gpm, head_m, power_kw){
+  const head_ft = metersToFeet(head_m);
+  const hydraulic_hp = (q_gpm * head_ft) / 3960; // hydraulic horsepower
+  const hydraulic_kw = hydraulic_hp * 0.746; // convert hp -> kW
+  if (power_kw <= 0) return NaN;
+  return (hydraulic_kw / power_kw) * 100;
+}
+
+/* --- Predict function called by button --- */
+function predict() {
+  const sel = document.getElementById('pumpSelect');
+  const pumpName = sel.value;
+  if (!pumpName) { alert('Please choose a pump model.'); return; }
+  const pump = pumps.find(p => p.name === pumpName);
+  const baseRPM = pump.baseRpm;
+  if (!baseRPM) { alert('Base RPM missing for this pump in XML'); return; }
+
+  const q_input = parseFloat(document.getElementById('inputFlow').value);
+  const h_input = bartometer(parseFloat(document.getElementById('inputHead').value));
+  const newRPM = parseFloat(document.getElementById('inputSpeed').value);
+
+  if (isNaN(q_input) || isNaN(h_input) || isNaN(newRPM)) {
+    alert('Please enter Flow (GPM), Head (m) and New Speed (RPM).');
+    return;
+  }
+
+  // 1) Find KW at q_input by interpolation on the base curve
+  const interp = interpAtFlow(pump.dataPoints, q_input);
+  const kw_base_from_curve = interp.kw;
+  const head_from_curve = interp.head_m; // head from curve at that flow (base)
+  // Note: user provided head may differ from curve head; we'll use user's head for scaling if they gave measured head.
+  // We'll present both: predicted using user's provided head (assumed correct) and predicted using curve head (if user wants).
+  // For calculations below we'll use user's head as the base operating head as user requested.
+
+  // 2) compute scaling
+  const ratioRPM = newRPM / baseRPM;
+  
+  let p_flow = pump.dataPoints.map(dp => dp.gpm);
+  let p_head = pump.dataPoints.map(dp => dp.head_m);
+  let p_kw = pump.dataPoints.map(dp => dp.kw);  
+  
+  const H_Ratio = h_input / head_from_curve;
+  const D_ref = pump.baseD * Math.sqrt(H_Ratio);    
+
+  let D = correctedD(p_flow, p_head, q_input, h_input, pump.MinD, pump.baseD, D_ref,ratioRPM);
+  let D_Status = "OK";
+  if (D < pump.MinD){
+    D = parseFloat(pump.MinD);
+    D_Status = "Below the range";
+  } else if(D > pump.baseD){
+    D = parseFloat(pump.baseD);
+    D_Status = "Above the range";
+  }
+  
+  const D_Ratio = D / pump.baseD;  
+  
+  for (i=0;i < p_flow.length-1;i++){
+    p_flow[i] = p_flow[i] * D_Ratio * ratioRPM;
+    p_head[i] = p_head[i] * Math.pow(D_Ratio,2) * Math.pow(ratioRPM,2);
+    p_kw[i] = p_kw[i] * Math.pow(D_Ratio,3) * Math.pow(ratioRPM,3);
+  }  
+  
+  const newScaled = interpolateHP(p_flow, p_head, p_kw, q_input);
+  let H_curve_newRPM = newScaled.head_m;
+  let P_curve_newRPM = newScaled.kw_p;
+  const interp150 = interpolateHP(p_flow, p_head, p_kw, q_input*1.5);
+  const H_150 = interp150.head_m;
+  const P_150 = interp150.kw_p;
+  // 3) efficiencies
+  const eff_new = computeEfficiency(q_input*1.5,H_150, P_150);
+  const eff_base = computeEfficiency(q_input, H_curve_newRPM, P_curve_newRPM);
+  let h_new = H_curve_newRPM;
+  let p_new = P_curve_newRPM;
+  let Q_equiv = q_input;
+  let q_new = q_input;
+  // 4) check scaled curve range
+  const gpmList = pump.dataPoints.map(d => d.gpm);
+  const minG = Math.min(...gpmList);
+  const maxG = Math.max(...gpmList);
+  const minG_new = minG * ratioRPM;
+  const maxG_new = maxG * ratioRPM;
+  const inRange = (Q_equiv >= minG_new - 1e-6) && (Q_equiv <= maxG_new + 1e-6);
+
+  // 5) Show results
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('res_q_base').textContent = `${q_input.toFixed(2)} GPM`;
+  document.getElementById('res_h_base').textContent = `${H_curve_newRPM.toFixed(2)} m / ${(H_curve_newRPM * 0.0981).toFixed(2)} bar`;
+  document.getElementById('res_p_base').textContent = `${P_curve_newRPM.toFixed(3)} kW / ${(P_curve_newRPM / 0.746).toFixed(3)} hp`;
+  document.getElementById('res_eff_base').textContent = isNaN(eff_base) ? 'N/A' : eff_base.toFixed(2) + ' %';
+
+  document.getElementById('res_q_new').textContent = `${q_input*1.5.toFixed(2)} GPM`;
+  document.getElementById('res_h_new').textContent = `${H_150.toFixed(2)} m / ${(H_150 * 0.0981).toFixed(2)} bar`;
+  document.getElementById('res_p_new').textContent = `${P_150.toFixed(2)} kW / ${(P_150 / 0.746).toFixed(2)} hp`;
+  document.getElementById('res_eff_new').textContent = isNaN(eff_new) ? 'N/A' : eff_new.toFixed(2) + ' %';
+
+  // Status message
+  const statusEl = document.getElementById('statusMsg');
+  statusEl.innerHTML = '';
+  if (interp.note === 'below_range' || interp.note === 'above_range') {
+    statusEl.innerHTML += `<div class="warn">The calculated impeller diameter is ${D.toFixed(0)} mm. <br>Note: the entered Flow (${q_input.toFixed(2)} GPM) is outside the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM). Interpolation used the nearest endpoint; predictions may be inaccurate.</div>`;
+  } else if (D_Status === 'Below the range' || D_Status === 'Above the range') {
+    statusEl.innerHTML += `<div class="warn">The calculated impeller diameter is ${D.toFixed(0)} mm. <br>Note: the entered Pressure (${(h_input * 0.0981).toFixed(2)} bar) is outside the pump curve range. <br>Interpolation used the nearest endpoint; predictions may be inaccurate.</div>`;
+  } else {
+    statusEl.innerHTML += `<div class="ok">The calculated impeller diameter is ${D.toFixed(0)} mm. <br>Interpolated values at ${q_input.toFixed(2)} GPM: ${H_curve_newRPM.toFixed(3)} m , ${P_curve_newRPM.toFixed(3)} kW. </div>`;
+  }  
+
+  // Curve check
+const curveCheckEl = document.getElementById('curveCheck');
+document.getElementById('curveCheckCard').style.display = 'block';
+
+const statusText = inRange ? "INSIDE" : "OUTSIDE";
+const statusClass = inRange ? "ok" : "warn";
+const note = inRange
+  ? ""
+  : "Operating outside the curve is not recommended.";
+
+curveCheckEl.innerHTML = `
+<table border="1" cellpadding="6" style="border-collapse: collapse; width:100%; text-align:center;">
+  <thead>
+    <tr>
+      <th>Predicted Flow (GPM)</th>
+      <th>Curve Range (GPM)</th>
+      <th>Status</th>
+      <th>Note</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>${q_input.toFixed(2)}</td>
+      <td>${minG_new.toFixed(2)} — ${maxG_new.toFixed(2)}</td>
+      <td class="${statusClass}"><strong>${statusText}</strong></td>
+      <td>${note}</td>
+    </tr>
+  </tbody>
+</table>
+`;
+  // also show a short summary below
+  curveCheckEl.innerHTML += `<div style="margin-top:8px;"><strong>Summary:</strong><br> Rated Flow=${q_input.toFixed(2)} GPM, Rated Pressure=${H_curve_newRPM.toFixed(2)} m, Power at 100%=${P_curve_newRPM.toFixed(3)} kW, Power at 150%=${P_150.toFixed(3)} kW → at ${newRPM} RPM.</div>`;
+}
+
+/* --- Reset results --- */
+function resetResults(){
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('statusMsg').innerHTML = '';
+  document.getElementById('curveCheckCard').style.display = 'none';
+}
+
+/* --- When page loads, show pump dropdown populated above --- */
+onPumpChange(); // in case there's default selection
+</script>
+
+</body>
+</html>
