@@ -2,8 +2,6 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <title>Al Aman Pump Calculator by Naseem Usman</title>
 <style>
   body { font-family: Arial, Helvetica, sans-serif; padding: 18px; max-width:1000px; margin:auto; }
@@ -2321,69 +2319,6 @@ function parseXMLFromScript() {
 
 /* --- Read xml, fill dropdown --- */
 const xmlDoc = parseXMLFromScript();
-function plotPumpCurve(flow, head, rflow, rhead) {
-    // Get the canvas context
-    const canvas = document.getElementById('pumpChart');
-    if (!canvas) {
-        console.error("Canvas element with id 'pumpChart' not found.");
-        return;
-    }
-    const ctx = canvas.getContext('2d');
-
-    // 1. Prepare Curve Data
-    // Map the separate flow and head arrays into {x, y} objects
-    const curvePoints = flow.map((val, index) => {
-        return { x: val, y: head[index] };
-    });
-
-    // 2. Prepare Rated Point Data
-    const ratedPoint = [{ x: rflow, y: rhead }];
-
-    // 3. Destroy existing chart instance if it exists (to prevent overlays)
-    // Assumes 'window.myPumpChart' stores the instance globally
-    if (window.myPumpChart) {
-        window.myPumpChart.destroy();
-    }
-
-    // 4. Create the Chart
-    window.myPumpChart = new Chart(ctx, {
-        type: 'scatter', 
-        data: {
-            datasets: [
-                {
-                    label: 'Pump Curve',
-                    data: curvePoints,
-                    showLine: true,         // Connect points to make a curve
-                    borderColor: 'blue',
-                    backgroundColor: 'rgba(0, 0, 255, 0.1)',
-                    tension: 0.4,           // Smooth cubic interpolation
-                    fill: false
-                },
-                {
-                    label: 'Rated Point',
-                    data: ratedPoint,
-                    backgroundColor: 'red',
-                    borderColor: 'darkred',
-                    pointRadius: 8,         // Larger radius to annotate clearly
-                    pointStyle: 'circle'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: {
-                    type: 'linear',
-                    position: 'bottom',
-                    title: { display: true, text: 'Flow' }
-                },
-                y: {
-                    title: { display: true, text: 'Head' }
-                }
-            }
-        }
-    });
-}
 function getPumpModels() {
   return Array.from(xmlDoc.getElementsByTagName('PumpModel')).map(pm => {
     const name = pm.getAttribute('name');
