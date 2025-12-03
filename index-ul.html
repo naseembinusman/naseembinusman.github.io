@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -92,7 +92,7 @@
 </div>
 
 <hr style="margin-top:20px;">
-
+<canvas id="pumpChart"></canvas>
 <script id="pumpXML" type="text/xml">
 <PumpDatabase>
   <PumpModel name="EH2515250">
@@ -2322,7 +2322,69 @@ function parseXMLFromScript() {
 
 /* --- Read xml, fill dropdown --- */
 const xmlDoc = parseXMLFromScript();
+function plotPumpCurve(flow, head, rflow, rhead) {
+    // Get the canvas context
+    const canvas = document.getElementById('pumpChart');
+    if (!canvas) {
+        console.error("Canvas element with id 'pumpChart' not found.");
+        return;
+    }
+    const ctx = canvas.getContext('2d');
 
+    // 1. Prepare Curve Data
+    // Map the separate flow and head arrays into {x, y} objects
+    const curvePoints = flow.map((val, index) => {
+        return { x: val, y: head[index] };
+    });
+
+    // 2. Prepare Rated Point Data
+    const ratedPoint = [{ x: rflow, y: rhead }];
+
+    // 3. Destroy existing chart instance if it exists (to prevent overlays)
+    // Assumes 'window.myPumpChart' stores the instance globally
+    if (window.myPumpChart) {
+        window.myPumpChart.destroy();
+    }
+
+    // 4. Create the Chart
+    window.myPumpChart = new Chart(ctx, {
+        type: 'scatter', 
+        data: {
+            datasets: [
+                {
+                    label: 'Pump Curve',
+                    data: curvePoints,
+                    showLine: true,         // Connect points to make a curve
+                    borderColor: 'blue',
+                    backgroundColor: 'rgba(0, 0, 255, 0.1)',
+                    tension: 0.4,           // Smooth cubic interpolation
+                    fill: false
+                },
+                {
+                    label: 'Rated Point',
+                    data: ratedPoint,
+                    backgroundColor: 'red',
+                    borderColor: 'darkred',
+                    pointRadius: 8,         // Larger radius to annotate clearly
+                    pointStyle: 'circle'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    type: 'linear',
+                    position: 'bottom',
+                    title: { display: true, text: 'Flow' }
+                },
+                y: {
+                    title: { display: true, text: 'Head' }
+                }
+            }
+        }
+    });
+}
 function getPumpModels() {
   return Array.from(xmlDoc.getElementsByTagName('PumpModel')).map(pm => {
     const name = pm.getAttribute('name');
@@ -2613,6 +2675,7 @@ function predict() {
     statusEl.innerHTML += `<div class="warn">Note: the entered Pressure (${(h_input * 0.0981).toFixed(2)} bar) is outside the pump curve range. <br>Interpolation used the nearest endpoint; predictions may be inaccurate.</div>`;
   } else {
     statusEl.innerHTML += `<div class="ok">The calculated impeller diameter is ${D.toFixed(0)} mm.`;
+    plotPumpCurve(flow, head, rflow, rhead) 
   }  
 
   // Curve check
@@ -2659,6 +2722,5 @@ function resetResults(){
 /* --- When page loads, show pump dropdown populated above --- */
 onPumpChange(); // in case there's default selection
 </script>
-
 </body>
 </html>
