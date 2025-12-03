@@ -2531,6 +2531,9 @@ function plotPumpCurve(flow, head, rflow, rhead) {
 
     // 2. Prepare Rated Point Data
     const ratedPoint = [{ x: rflow, y: rhead }];
+    const rflow_150 = rflow * 1.5;
+    const rhead_150 = interpolateHead(flow, head, rflow_150);
+    const rated_150Point = [{ x: rflow_150, y: rhead_150 }]
 
     // 3. Destroy existing chart instance if it exists (to prevent overlays)
     // Assumes 'window.myPumpChart' stores the instance globally
@@ -2560,7 +2563,15 @@ function plotPumpCurve(flow, head, rflow, rhead) {
                     borderColor: 'darkred',
                     pointRadius: 8,         // Larger radius to annotate clearly
                     pointStyle: 'circle'
-                }
+                },
+                {
+                    label: '150% of flow',
+                    data: rated_150Point,
+                    backgroundColor: 'red',
+                    borderColor: 'darkred',
+                    pointRadius: 8,         // Larger radius to annotate clearly
+                    pointStyle: 'circle'
+                }              
             ]
         },
         options: {
