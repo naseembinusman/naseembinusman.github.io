@@ -1,0 +1,2850 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>Al Aman Pump Calculator by Naseem Usman</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; padding: 18px; max-width:1000px; margin:auto; }
+    label { display:block; margin-top:12px; font-weight:600; }    
+    input { width: 50%; padding: 6px 8px;  }
+    select, button { padding:6px 8px; font-size:14px; margin-top:6px; }
+    .specs { margin-top:12px; padding:10px; border:1px solid #ddd; border-radius:6px; background:#fafafa; }
+    .row { display: flex; gap: 20px; margin-bottom: 10px; }
+    .row div { flex: 1; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    table th, table td { border:1px solid #ddd; padding:6px; text-align:center; }
+    .hint { color:#666; font-size:13px; margin-top:6px; }
+    .warn { color:#8a3; background:#fff5e6; padding:8px; border-radius:6px; margin-bottom:8px; }
+    .ok { color:#0a0; background:#f0fff0; padding:8px; border-radius:6px; margin-bottom:8px; }
+  </style>
+</head>
+<body>
+  <h1>Al Aman Pump Performance Calculator by Naseem Usman</h1>
+  <p>Pick a pump, enter operating Flow (GPM) and Pressure (bar) at the pump's base RPM, then enter a new speed (RPM) to predict performance at that speed.</p>
+  <a href="index.html">Main Page</a>
+  <br>
+
+  <label for="flowSelect">Flow</label>
+  <select id="flowSelect"><option value="">-- select flow rate --</option></select>
+
+  <label for="modelSelect">Pump Model</label>
+  <select id="modelSelect" disabled><option value="">-- select model --</option></select>
+  
+
+  <div id="baseInfo" class="card" style="display:none;" >
+    <br>
+    <strong>Pump base RPM:</strong> <span id="baseRpmText"></span><br>
+    <strong>Impeller size:</strong> <span id="impeller_size"></span><br>
+    <strong>Flow range at base RPM (GPM):</strong> <span id="curveRange"></span><br>
+    <strong>Pressure range at base RPM (BAR):</strong> <span id="headRange"></span>
+  </div>
+
+  <div id="inputSection" class="card" style="display:none;">
+    <h3>Enter operating conditions</h3>
+    <div class="row">
+      <div>
+        <label>Rated Pressure (bar) </label>
+        <input id="inputHead" type="number" step="0.01" placeholder="in bar">
+      </div>
+      <div>
+        <label>Rated Speed (RPM)</label>
+        <input id="inputSpeed" type="number" step="50" placeholder="e.g. 3500" value="2900">
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <button id="predictBtn">Predict at new speed</button>
+      <button id="resetBtn" style="margin-left:10px;">Clear results</button>
+    </div>
+    <small>Note: enter Flow & Head measured at the pump's base RPM (shown above). If you have measured at a different RPM, please adjust first.</small>
+  </div>
+
+  <div id="results" style="display:none;">
+    <div id="statusMsg"></div>
+
+    <div class="card">
+      <h3>Predicted Values</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Quantity</th>
+            <th>100% Flow</th>
+            <th>150% Flow</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Flow (GPM)</td><td id="res_q_base"></td><td id="res_q_new"></td></tr>
+          <tr><td>Head (m)</td><td id="res_h_base"></td><td id="res_h_new"></td></tr>
+          <tr><td>Power (kW)</td><td id="res_p_base"></td><td id="res_p_new"></td></tr>
+          <tr><td>Efficiency (%)</td><td id="res_eff_base"></td><td id="res_eff_new"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" id="curveCheckCard" style="display:none;">
+      <h3>Curve Check</h3>
+      <div id="curveCheck"></div>
+    </div>
+  </div>
+
+  <hr style="margin-top:20px;">
+  <canvas id="pumpChart"></canvas>
+
+
+  <!-- Embedded XML 1: Flows -> Flow rate + PumpModel -->
+  <script type="application/xml" id="flows-xml">
+    <PumpsData>
+      <Flow rate="50">
+        <PumpModel>EH2515250</PumpModel>
+      </Flow>
+      <Flow rate="100">
+        <PumpModel>EH2515250</PumpModel>
+      </Flow>
+      <Flow rate="150">
+        <PumpModel>EH2515250</PumpModel>
+      </Flow>
+      <Flow rate="200">
+        <PumpModel>EH32250</PumpModel>
+      </Flow>
+      <Flow rate="250">
+        <PumpModel>EH32250</PumpModel>
+      </Flow>
+      <Flow rate="300">
+        <PumpModel>EH425250</PumpModel>
+        <PumpModel>EHES425250</PumpModel>
+      </Flow>
+      <Flow rate="400">
+        <PumpModel>EH425250</PumpModel>
+        <PumpModel>EHES425250</PumpModel>
+      </Flow>
+      <Flow rate="450">
+        <PumpModel>EH53250</PumpModel>
+        <PumpModel>EHES53250</PumpModel>
+        <PumpModel>ESF100-250</PumpModel>
+        <PumpModel>ESF100-375</PumpModel>
+      </Flow>
+      <Flow rate="500">
+        <PumpModel>EH53250</PumpModel>
+        <PumpModel>EH53315</PumpModel>
+        <PumpModel>EHES53250</PumpModel>
+        <PumpModel>ESF100-250</PumpModel>
+        <PumpModel>ESF100-375</PumpModel>
+      </Flow>
+      <Flow rate="750">
+        <PumpModel>EH54315</PumpModel>
+        <PumpModel>EHES54200</PumpModel>
+        <PumpModel>ESF100-250</PumpModel>
+        <PumpModel>ESF100-375</PumpModel>
+      </Flow>
+      <Flow rate="1000">
+        <PumpModel>EH64315</PumpModel>
+        <PumpModel>EHES64200</PumpModel>
+        <PumpModel>HSC125-290</PumpModel>
+        <PumpModel>ESF125-365</PumpModel>
+      </Flow>
+      <Flow rate="1250">
+        <PumpModel>EH64315</PumpModel>
+        <PumpModel>HSC125-290</PumpModel>
+        <PumpModel>ESF125-365</PumpModel>
+      </Flow>
+      <Flow rate="1500">
+        <PumpModel>HSC150-290</PumpModel>
+        <PumpModel>ESF150-360</PumpModel>
+      </Flow>
+      <Flow rate="2000">
+        <PumpModel>HSC150-290</PumpModel>
+        <PumpModel>ESF150-360</PumpModel>
+      </Flow>
+    </PumpsData>
+  </script>
+
+  <!-- Embedded XML 2: PumpDatabase (example entry provided by you) -->
+  <script type="application/xml" id="db-xml">
+  <PumpDatabase>
+    <PumpModel name="EH2515250">
+      <Specifications>
+        <D_min>236.0</D_min>
+        <D_max>278.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>106.8695652173913</M>
+          <KW>11.130434782608695</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>15.850372483753368</GPM>
+          <M>106.73913043478261</M>
+          <KW>11.782608695652174</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>31.700744967506736</GPM>
+          <M>106.30434782608695</M>
+          <KW>12.543478260869565</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>47.551117451260104</GPM>
+          <M>105.8695652173913</M>
+          <KW>13.347826086956522</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>63.401489935013473</GPM>
+          <M>105.21739130434783</M>
+          <KW>14.0</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>79.251862418766834</GPM>
+          <M>104.56521739130434</M>
+          <KW>14.869565217391305</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>95.102234902520209</GPM>
+          <M>103.69565217391305</M>
+          <KW>15.673913043478262</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>110.95260738627357</GPM>
+          <M>102.73913043478261</M>
+          <KW>16.695652173913042</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>126.80297987002694</GPM>
+          <M>101.69565217391305</M>
+          <KW>17.760869565217393</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>142.65335235378031</GPM>
+          <M>100.43478260869566</M>
+          <KW>18.82608695652174</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>158.50372483753368</GPM>
+          <M>98.956521739130434</M>
+          <KW>19.978260869565218</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>174.35409732128703</GPM>
+          <M>97.217391304347828</M>
+          <KW>21.173913043478262</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>190.2044698050404</GPM>
+          <M>95.130434782608694</M>
+          <KW>22.391304347826086</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>206.05484228879377</GPM>
+          <M>92.565217391304348</M>
+          <KW>23.630434782608695</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>221.90521477254714</GPM>
+          <M>89.695652173913039</M>
+          <KW>24.891304347826088</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>237.7555872563005</GPM>
+          <M>86.304347826086952</M>
+          <KW>26.043478260869566</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>253.60595974005387</GPM>
+          <M>82.521739130434777</M>
+          <KW>27.065217391304348</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>269.45633222380724</GPM>
+          <M>78.0</M>
+          <KW>27.782608695652174</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>285.3067047075606</GPM>
+          <M>72.782608695652175</M>
+          <KW>28.173913043478262</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>301.15707719131397</GPM>
+          <M>66.782608695652175</M>
+          <KW>28.173913043478262</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>317.00744967506733</GPM>
+          <M>59.82608695652174</M>
+          <KW>27.76086956521739</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>332.8578221588207</GPM>
+          <M>52.0</M>
+          <KW>26.891304347826088</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>348.70819464257406</GPM>
+          <M>43.434782608695656</M>
+          <KW>25.565217391304348</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>364.55856712632743</GPM>
+          <M>33.869565217391305</M>
+          <KW>23.891304347826088</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>377.23880628373302</GPM>
+          <M>26.565217391304348</M>
+          <KW>22.5</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="EH54200">
+      <Specifications>
+        <D_min>190.0</D_min>
+        <D_max>237.0</D_max>
+        <Base_RPM>3000.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>73.79807692307692</M>
+          <KW>26.66667</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>317.00744967506733</GPM>
+          <M>72.40384615384616</M>
+          <KW>35.59615</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>634.01489935013467</GPM>
+          <M>69.27884615384616</M>
+          <KW>40.48077</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>951.02234902520206</GPM>
+          <M>62.403846153846153</M>
+          <KW>46.44231</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1268.0297987002693</GPM>
+          <M>48.653846153846153</M>
+          <KW>47.40385</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1467.5225867807892</GPM>
+          <M>35.96153846153846</M>
+          <KW>45.72115</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="EH64200">
+      <Specifications>
+        <D_min>210.0</D_min>
+        <D_max>239.0</D_max>
+        <Base_RPM>3000.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>72.727272727272734</M>
+          <KW>36.442307692307693</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>317.00744967506733</GPM>
+          <M>71.818181818181813</M>
+          <KW>40.480769230769234</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>634.01489935013467</GPM>
+          <M>68.63636363636364</M>
+          <KW>45.480769230769234</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>951.02234902520206</GPM>
+          <M>61.363636363636367</M>
+          <KW>50.480769230769234</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1268.0297987002693</GPM>
+          <M>49.545454545454547</M>
+          <KW>51.442307692307693</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1585.0372483753367</GPM>
+          <M>33.18181818181818</M>
+          <KW>48.557692307692307</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1700.903471231574</GPM>
+          <M>25.454545454545453</M>
+          <KW>47.163461538461539</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="AM65-26ES">
+      <Specifications>
+        <D_min>240.0</D_min>
+        <D_max>264.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>103.29510055515172</M>
+          <KW>30.572975035381045</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>105.01338688085676</GPM>
+          <M>102.60825766251082</M>
+          <KW>34.152758590959216</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>201.87416331994643</GPM>
+          <M>100.601872012817</M>
+          <KW>36.624079144452367</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>244.38420348058904</GPM>
+          <M>99.414995994688255</M>
+          <KW>37.6046832919306</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>291.84404283801871</GPM>
+          <M>97.634681967495155</M>
+          <KW>39.090447151746112</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>365.12048192771084</GPM>
+          <M>93.979857403733618</M>
+          <KW>41.081370723898893</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>389.7724230254351</GPM>
+          <M>92.623427668729349</M>
+          <KW>41.824252654992525</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>432.28246318607775</GPM>
+          <M>89.664413988574495</M>
+          <KW>43.109867011406859</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>456.9344042838019</GPM>
+          <M>87.884099961381395</M>
+          <KW>44.09047115888439</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>471.7456740951167</GPM>
+          <M>86.435728800115049</M>
+          <KW>44.83335309003792</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>501.37326248906987</GPM>
+          <M>83.843075132205566</M>
+          <KW>45.813957237515354</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>520.184917178306</GPM>
+          <M>81.918903009931899</M>
+          <KW>46.556839185068987</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>539.00889140770244</GPM>
+          <M>79.99472997034451</M>
+          <KW>47.299721132622619</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>557.83286563709888</GPM>
+          <M>77.839846205856411</M>
+          <KW>47.882582881519445</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>576.65683986649533</GPM>
+          <M>75.684962441368322</M>
+          <KW>48.46544463041627</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>595.48081409589177</GPM>
+          <M>73.530078676880227</M>
+          <KW>48.837585909592185</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>614.30478832528821</GPM>
+          <M>71.196397268958639</M>
+          <KW>49.025697376645631</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>633.12876255468466</GPM>
+          <M>68.603743601049141</M>
+          <KW>49.025697376645631</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>651.9527367840811</GPM>
+          <M>65.832975035381045</M>
+          <KW>48.837585909592185</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>670.77671101347754</GPM>
+          <M>62.884488686008696</M>
+          <KW>48.254724140904078</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>689.60068524287399</GPM>
+          <M>59.936002336636348</M>
+          <KW>47.511842109750444</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>708.42465947227043</GPM>
+          <M>56.781118671158259</M>
+          <KW>46.3385203522216</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>727.24863370166688</GPM>
+          <M>53.448550117826227</M>
+          <KW>45.053896084013143</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>746.07260793106332</GPM>
+          <M>49.938363687989531</M>
+          <KW>43.568132224197629</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>764.89658216045976</GPM>
+          <M>46.250559385570044</M>
+          <KW>41.873090967005479</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>783.72055638985621</GPM>
+          <M>42.100989324080186</M>
+          <KW>39.882482672270313</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>802.54453061925265</GPM>
+          <M>37.773796850938634</M>
+          <KW>37.5978583774853</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>821.3685048486491</GPM>
+          <M>33.2689851459853</M>
+          <KW>35.018809495167018</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>840.19247907804554</GPM>
+          <M>28.586554109319694</M>
+          <KW>32.145321820405232</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>859.01645330744198</GPM>
+          <M>23.726484042841897</M>
+          <KW>29.077405253300582</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>868.4282829213101</GPM>
+          <M>20.930491873289053</M>
+          <KW>27.382363996108428</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="EH32250">
+      <Specifications>
+        <D_min>236.0</D_min>
+        <D_max>278.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>101.45275947248686</M>
+          <KW>16.644025837346089</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>53.34575008465967</GPM>
+          <M>101.36597558367028</M>
+          <KW>18.686931027068166</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>99.8645903859174</GPM>
+          <M>100.49365364640515</M>
+          <KW>20.9817347899991</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>153.84354893328819</GPM>
+          <M>99.277653445396439</M>
+          <KW>23.722751876616112</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>198.73053486797562</GPM>
+          <M>97.9539832796637</M>
+          <KW>26.029971731953765</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>226.99221394719027</GPM>
+          <M>96.737719441369762</M>
+          <KW>27.256973766456639</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>249.83062330623306</GPM>
+          <M>95.595792132195243</M>
+          <KW>28.296009767123996</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>272.66851604754593</GPM>
+          <M>94.2721219664625</M>
+          <KW>29.12352820541991</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>300.93019512676058</GPM>
+          <M>92.548451799729815</M>
+          <KW>30.162564206087268</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>323.76817086807342</GPM>
+          <M>90.418298708173078</M>
+          <KW>30.886082644383183</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>346.60614560938626</GPM>
+          <M>87.801045230979566</M>
+          <KW>31.405590144716174</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>369.44412035069911</GPM>
+          <M>84.842791753685942</M>
+          <KW>31.61334690488267</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>392.28209509201195</GPM>
+          <M>81.67012920803531</M>
+          <KW>31.509475276329315</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>415.1200698333248</GPM>
+          <M>78.007559196387829</M>
+          <KW>31.085810245089357</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>437.95804457463764</GPM>
+          <M>73.742385150917757</M>
+          <KW>30.459398075577607</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>460.79601931595048</GPM>
+          <M>68.969116606861966</M>
+          <KW>29.420361131980324</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>483.63399405726333</GPM>
+          <M>63.50422998634848</M>
+          <KW>27.965825700729796</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>506.47196879857617</GPM>
+          <M>57.348074945842857</M>
+          <KW>26.196963943199857</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>529.309943539889</GPM>
+          <M>50.509787090886266</M>
+          <KW>24.128795113970634</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>552.14791828120185</GPM>
+          <M>42.989365364640515</M>
+          <KW>21.658145455640324</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>574.9858930225147</GPM>
+          <M>34.78672044877969</M>
+          <KW>18.899661141753765</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>597.82386776382754</GPM>
+          <M>25.901878033068984</M>
+          <KW>15.748366487190082</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>610.95764834863391</GPM>
+          <M>19.645558661642807</M>
+          <KW>13.432353396732894</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="EH425250">
+      <Specifications>
+        <D_min>222.0</D_min>
+        <D_max>278.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>106.35593220338983</M>
+          <KW>19.576271186440678</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>31.700744967506736</GPM>
+          <M>106.22881355932203</M>
+          <KW>20.847457627118644</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>63.401489935013473</GPM>
+          <M>105.84745762711864</M>
+          <KW>22.33050847457627</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>95.102234902520209</GPM>
+          <M>105.63559322033899</M>
+          <KW>23.728813559322035</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>126.80297987002695</GPM>
+          <M>105.33898305084746</M>
+          <KW>25.423728813559322</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>158.50372483753367</GPM>
+          <M>104.83050847457628</M>
+          <KW>26.694915254237287</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>190.20446980504042</GPM>
+          <M>104.49152542372882</M>
+          <KW>28.305084745762713</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>221.90521477254714</GPM>
+          <M>103.94067796610169</M>
+          <KW>29.788135593220339</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>253.60595974005389</GPM>
+          <M>103.51694915254237</M>
+          <KW>31.271186440677965</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>285.30670470756064</GPM>
+          <M>102.88135593220339</M>
+          <KW>32.881355932203391</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>317.00744967506733</GPM>
+          <M>102.11864406779661</M>
+          <KW>34.406779661016952</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>348.70819464257408</GPM>
+          <M>101.10169491525424</M>
+          <KW>35.805084745762713</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>380.4089396100808</GPM>
+          <M>99.915254237288132</M>
+          <KW>37.076271186440678</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>412.10968457758757</GPM>
+          <M>98.406779661016945</M>
+          <KW>38.474576271186443</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>443.81042954509432</GPM>
+          <M>96.48305084745763</M>
+          <KW>39.8728813559322</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>475.51117451260103</GPM>
+          <M>94.13559322033898</M>
+          <KW>41.144067796610173</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>507.21191948010778</GPM>
+          <M>91.313559322033902</M>
+          <KW>42.28813559322034</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>538.9126644476145</GPM>
+          <M>88.084745762711862</M>
+          <KW>43.169491525423728</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>570.61340941512126</GPM>
+          <M>84.347457627118642</M>
+          <KW>43.76271186440678</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>602.31415438262801</GPM>
+          <M>80.093220338983046</M>
+          <KW>43.983050847457628</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>634.01489935013473</GPM>
+          <M>75.296610169491526</M>
+          <KW>43.830508474576272</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>665.71564431764148</GPM>
+          <M>69.966101694915247</M>
+          <KW>43.3728813559322</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>697.4163892851482</GPM>
+          <M>64.08474576271186</M>
+          <KW>42.49152542372881</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>729.11713425265495</GPM>
+          <M>57.542372881355928</M>
+          <KW>41.220338983050846</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>760.8178792201617</GPM>
+          <M>50.44915254237288</M>
+          <KW>39.57627118644068</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>792.51862418766845</GPM>
+          <M>42.796610169491525</M>
+          <KW>37.54237288135593</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>816.1425048700269</GPM>
+          <M>36.567796610169489</M>
+          <KW>35.796610169491525</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="EH53250">
+      <Specifications>
+        <D_min>222.0</D_min>
+        <D_max>278.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>102.46790725858254</M>
+          <KW>32.842023878961079</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>99.462837837837839</GPM>
+          <M>99.950155537855977</M>
+          <KW>34.506717341326961</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>196.33445945945945</GPM>
+          <M>100.49087176368712</M>
+          <KW>37.40011312115336</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>398.31475852752448</GPM>
+          <M>98.853432590255622</M>
+          <KW>45.249639783034347</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>454.84976367319376</GPM>
+          <M>97.157260125898119</M>
+          <KW>47.339812634219008</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>499.46826468602296</GPM>
+          <M>95.349681307328936</M>
+          <KW>49.175179701588455</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>601.65259959486832</GPM>
+          <M>94.846488314817933</M>
+          <KW>53.146522818625943</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>703.83693450371369</GPM>
+          <M>93.181951569426978</M>
+          <KW>57.117865935663435</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>806.02126941255905</GPM>
+          <M>90.999710385960002</M>
+          <KW>61.272091444155829</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>908.20560432140442</GPM>
+          <M>88.136893655184852</M>
+          <KW>65.426316952648216</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1010.3899392302498</GPM>
+          <M>84.591295286592078</M>
+          <KW>69.397660069685717</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1112.5742741390951</GPM>
+          <M>80.297441584288029</M>
+          <KW>72.96985318672322</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1214.7586090479405</GPM>
+          <M>75.255307437113117</M>
+          <KW>76.124078695215612</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1316.9429439567859</GPM>
+          <M>69.464992769265985</M>
+          <KW>78.855889961415727</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1419.1272788656312</GPM>
+          <M>62.926364003883017</M>
+          <KW>81.166881227596096</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1521.3116137744766</GPM>
+          <M>55.639405537855977</M>
+          <KW>82.902248293776472</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1623.495948683322</GPM>
+          <M>47.594065269265985</M>
+          <KW>84.110295286592078</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1725.6802835921673</GPM>
+          <M>38.790317342003847</M>
+          <KW>84.78918115665042</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1827.8646185010127</GPM>
+          <M>29.228247076214041</M>
+          <KW>84.908028214732168</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1920.9168918918919</GPM>
+          <M>20.316860088805625</M>
+          <KW>84.580434720993075</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="EH53315">
+      <Specifications>
+        <D_min>274.0</D_min>
+        <D_max>342.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>158.6898281946236</M>
+          <KW>48.769021793900954</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>106.59160176092111</GPM>
+          <M>158.76577711302548</M>
+          <KW>54.550250205230924</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>198.93026404874743</GPM>
+          <M>157.44480864495253</M>
+          <KW>59.600738432463437</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>306.79200542005418</GPM>
+          <M>156.9336948403087</M>
+          <KW>67.335722117752951</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>403.78936674568234</GPM>
+          <M>155.18384474974258</M>
+          <KW>73.742959609883656</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>451.64070436843889</GPM>
+          <M>154.30674455412384</M>
+          <KW>77.2068520518677</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>499.92213947190248</GPM>
+          <M>152.04940206708613</M>
+          <KW>80.596911477850849</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>600.08272935288289</GPM>
+          <M>147.28822970792557</M>
+          <KW>87.168538741369762</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>700.2433192338633</GPM>
+          <M>140.23709088636402</M>
+          <KW>93.181951569426978</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>799.41727725858248</GPM>
+          <M>131.75883734132694</M>
+          <KW>98.665985060410476</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>899.57786713956295</GPM>
+          <M>120.37064828659207</M>
+          <KW>103.55998115280738</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>999.73845702054341</GPM>
+          <M>105.77256191989289</M>
+          <KW>107.53132426984488</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1099.9022648713589</GPM>
+          <M>88.1585289945037</M>
+          <KW>110.32040178961726</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1199.076222896078</GPM>
+          <M>67.4363400228186</M>
+          <KW>112.05221315579753</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1258.9890615456209</GPM>
+          <M>54.671311090008472</M>
+          <KW>112.5583163559322</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="EH54315">
+      <Specifications>
+        <D_min>274.0</D_min>
+        <D_max>342.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>153.2671207464123</M>
+          <KW>66.621390533357072</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>152.19363574813812</GPM>
+          <M>151.45560197715298</M>
+          <KW>75.224859469637849</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>311.07819905213267</GPM>
+          <M>152.65035523529045</M>
+          <KW>83.161945221098676</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>457.73450728073146</GPM>
+          <M>153.32326449078155</M>
+          <KW>92.774182187404278</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>505.61442112389977</GPM>
+          <M>152.25777114142477</M>
+          <KW>96.067775711278856</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>636.63676371022336</GPM>
+          <M>152.1978791618354</M>
+          <KW>105.18251849496865</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>750.836437521165</GPM>
+          <M>149.8013645030951</M>
+          <KW>113.04077891264977</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>898.37424610115049</GPM>
+          <M>145.41908272993077</M>
+          <KW>124.70889961415729</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1052.4795321637427</GPM>
+          <M>139.75704515566089</M>
+          <KW>137.94793562414777</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1206.584818226335</GPM>
+          <M>132.81297120746411</M>
+          <KW>151.78502123547144</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1355.097017688533</GPM>
+          <M>124.28822970792557</M>
+          <KW>165.73887140882142</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1503.609217150731</GPM>
+          <M>113.99347895059637</M>
+          <KW>179.03246493269608</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1652.1214166129289</GPM>
+          <M>101.92654388484649</M>
+          <KW>191.86558455799346</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1800.6336160751269</GPM>
+          <M>88.084745762711862</M>
+          <KW>203.4462002715009</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1949.1458155373248</GPM>
+          <M>72.460866597753173</M>
+          <KW>213.65997105248135</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2082.261895690326</GPM>
+          <M>56.241558455799346</M>
+          <KW>221.75825227711414</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2225.862423927643</GPM>
+          <M>37.989045768652288</M>
+          <KW>228.0052951731661</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="EH64315">
+      <Specifications>
+        <D_min>265.0</D_min>
+        <D_max>325.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>145.68</M>
+          <KW>77.811</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>259.23</GPM>
+          <M>143.38</M>
+          <KW>84.94</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>478.47</GPM>
+          <M>142.81</M>
+          <KW>95.792</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>761.37</GPM>
+          <M>139.58</M>
+          <KW>113.065</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>883.81</GPM>
+          <M>138.98</M>
+          <KW>115.641</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>988.45</GPM>
+          <M>137.66</M>
+          <KW>119.798</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1109.92</GPM>
+          <M>134.14</M>
+          <KW>127.386</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1494.05</GPM>
+          <M>125.85</M>
+          <KW>140.998</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2404.68</GPM>
+          <M>95.01</M>
+          <KW>163.126</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2968.41</GPM>
+          <M>61.21</M>
+          <KW>164.912</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3036.81</GPM>
+          <M>56.59</M>
+          <KW>164.162</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3050.46</GPM>
+          <M>32.62</M>
+          <KW>154.493</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="EHES425250">
+      <Specifications>
+        <D_min>222.0</D_min>
+        <D_max>278.0</D_max>
+        <Base_RPM>3550.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>145.94651176044448</M>
+          <KW>39.176678314931159</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>147.942323487011</GPM>
+          <M>146.27789384993511</M>
+          <KW>46.964334450556414</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>179.81138900372051</GPM>
+          <M>146.33746238221929</M>
+          <KW>48.689557612876129</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>246.63990081904637</GPM>
+          <M>146.67047860837229</M>
+          <KW>53.001858842129892</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>296.37551100087268</GPM>
+          <M>146.68655255785424</M>
+          <KW>56.257608415747107</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>357.02467994187549</GPM>
+          <M>146.89315018509586</M>
+          <KW>60.327846424784113</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>443.47219270686753</GPM>
+          <M>144.49939066113376</M>
+          <KW>65.387179043513337</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>529.91970547185957</GPM>
+          <M>141.40356247960759</M>
+          <KW>70.768407857072559</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>616.3672182368516</GPM>
+          <M>136.70932529944321</M>
+          <KW>75.917951000574044</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>702.81473100184364</GPM>
+          <M>130.68746238221929</M>
+          <KW>80.824054199995572</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>789.26224376683568</GPM>
+          <M>123.07222509370144</M>
+          <KW>85.454049961710927</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>875.70975653182772</GPM>
+          <M>113.80164639909282</M>
+          <KW>89.524287970747933</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>962.15726929681975</GPM>
+          <M>102.77443577747864</M>
+          <KW>93.267817088285514</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1048.6047820618118</GPM>
+          <M>90.155462529094035</M>
+          <KW>96.423566661893129</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1135.0522948268038</GPM>
+          <M>75.922119332204642</M>
+          <KW>98.73586749103509</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1209.6106689814421</GPM>
+          <M>62.668504066060012</M>
+          <KW>99.888566276632497</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="EHES53250">
+      <Specifications>
+        <D_min>222.0</D_min>
+        <D_max>278.0</D_max>
+        <Base_RPM>3550.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>148.38860111764279</M>
+          <KW>57.233317956280025</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>119.69256756756756</GPM>
+          <M>144.74252630460555</M>
+          <KW>60.134355072094372</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>236.26689189189187</GPM>
+          <M>145.52556293040698</M>
+          <KW>65.176633868628812</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>479.3279297534616</GPM>
+          <M>143.15431016589443</M>
+          <KW>78.855889961415727</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>547.36158001350429</GPM>
+          <M>140.69800295738361</M>
+          <KW>82.498403827684214</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>601.05503038487507</GPM>
+          <M>138.080362961863</M>
+          <KW>85.696871355762866</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>724.02261985145162</GPM>
+          <M>137.3516654969828</M>
+          <KW>92.617693339021952</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>847.78460529146912</GPM>
+          <M>135.25056293040698</M>
+          <KW>99.457850550419262</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>971.54659073148661</GPM>
+          <M>131.78207165860273</M>
+          <KW>106.18579462794018</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1095.308576171504</GPM>
+          <M>126.9458931725619</M>
+          <KW>112.9137387054611</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1219.0705616115215</GPM>
+          <M>120.74252630460555</M>
+          <KW>119.52985390029573</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1342.832547051539</GPM>
+          <M>113.17177864197669</M>
+          <KW>125.96101923831388</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1466.5945324915565</GPM>
+          <M>104.23354317256191</M>
+          <KW>132.18047970726456</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1590.356517931574</GPM>
+          <M>93.927929753461621</M>
+          <KW>138.18824335447783</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1714.1185033715915</GPM>
+          <M>82.254744068997576</M>
+          <KW>143.98432924190472</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1837.880488811609</GPM>
+          <M>69.213977558601117</M>
+          <KW>149.3687372993077</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1961.6424742516265</GPM>
+          <M>54.795642993880562</M>
+          <KW>154.54145719575853</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2085.4044596916439</GPM>
+          <M>39.009470538960846</M>
+          <KW>159.29955358053644</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2209.1664451316614</GPM>
+          <M>21.855889961415729</M>
+          <KW>163.64596919053915</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2250.778735313977</GPM>
+          <M>15.700192078695079</M>
+          <KW>164.7170139156554</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="HSC125-290">
+      <Specifications>
+        <D_min>232.0</D_min>
+        <D_max>302.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>134.78320243757429</M>
+          <KW>95.619570659416112</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>161.20799067766902</GPM>
+          <M>134.4075772889417</M>
+          <KW>99.3401650534052</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>321.93356310645515</GPM>
+          <M>134.03091736028537</M>
+          <KW>103.80485727377093</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>482.6617153119733</GPM>
+          <M>133.56009244946489</M>
+          <KW>109.01364732051331</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>643.38986751749144</GPM>
+          <M>132.99406777645657</M>
+          <KW>114.96621940731474</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>806.18022874814733</GPM>
+          <M>132.42804310344826</M>
+          <KW>122.40825029213987</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>964.85100900990017</GPM>
+          <M>131.57641914387631</M>
+          <KW>130.5934313597816</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1125.5791612146864</GPM>
+          <M>130.72479518430436</M>
+          <KW>139.75704515566089</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1286.3073134202045</GPM>
+          <M>129.69766914594957</M>
+          <KW>150.39515694269784</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1447.0354656257226</GPM>
+          <M>128.36688320492822</M>
+          <KW>161.77726397146249</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1607.7636178312408</GPM>
+          <M>126.6517551465243</M>
+          <KW>174.57860111764279</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1768.4917700367589</GPM>
+          <M>124.55228516599252</M>
+          <KW>188.7513360816993</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1929.219922242277</GPM>
+          <M>122.068273267597</M>
+          <KW>203.88248267227031</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2089.948074447795</GPM>
+          <M>119.19971038596001</M>
+          <KW>220.73033283803158</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2250.6762266533133</GPM>
+          <M>115.94651176044448</M>
+          <KW>239.36294435398901</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2411.4043788588314</GPM>
+          <M>112.30876121750244</M>
+          <KW>259.78923055378772</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2572.1325310643497</GPM>
+          <M>108.28646875662892</M>
+          <KW>282.01918341620959</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2732.8606832698678</GPM>
+          <M>103.87963336783626</M>
+          <KW>306.14252630460555</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2893.588835475386</GPM>
+          <M>99.08825505053511</M>
+          <KW>332.15935661965646</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3054.3169876809041</GPM>
+          <M>93.912323805305146</M>
+          <KW>360.07367746197365</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3215.0451398864222</GPM>
+          <M>88.35185960252877</M>
+          <KW>389.88147820618118</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3375.7732920919404</GPM>
+          <M>82.406852051867702</M>
+          <KW>421.58221315579753</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3536.5014442974585</GPM>
+          <M>76.077291178229707</M>
+          <KW>455.17647058823529</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3697.2295965029766</GPM>
+          <M>69.363185390029571</M>
+          <KW>490.66428797074796</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3857.9577487084948</GPM>
+          <M>62.264531633190111</M>
+          <KW>528.04555860111766</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4018.685900914013</GPM>
+          <M>54.7812228549796</M>
+          <KW>567.31887130638297</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4179.4140531195311</GPM>
+          <M>46.91334690488267</M>
+          <KW>608.48563505963236</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4340.1422053250492</GPM>
+          <M>38.660879100252554</M>
+          <KW>651.5458514128516</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4500.8703575305673</GPM>
+          <M>29.983866442663914</M>
+          <KW>696.49841804918206</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4661.5985097360855</GPM>
+          <M>20.922315891408899</M>
+          <KW>743.34443697960769</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4761.7623196170659</GPM>
+          <M>14.98013645030951</M>
+          <KW>771.55404961415729</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="HSC150-290">
+      <Specifications>
+        <D_min>240.0</D_min>
+        <D_max>300.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>119.03695481569557</M>
+          <KW>164.74466927200783</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>307.63998765075058</GPM>
+          <M>118.37055648038046</M>
+          <KW>173.79510513448682</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>615.27836294104361</GPM>
+          <M>117.800392687277</M>
+          <KW>181.90976087580464</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>918.52305598465909</GPM>
+          <M>116.84839506539831</M>
+          <KW>190.0254692381811</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1221.7677490282747</GPM>
+          <M>115.61183293697975</M>
+          <KW>197.2064501004551</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1516.223465218078</GPM>
+          <M>113.61470749108204</M>
+          <KW>204.69900679609657</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1828.2555227550483</GPM>
+          <M>110.95118370986918</M>
+          <KW>211.25683593803698</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2137.9048366479007</GPM>
+          <M>107.80928091807633</M>
+          <KW>217.13567705353951</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2447.5541505407533</GPM>
+          <M>103.98889423608781</M>
+          <KW>222.89851816904203</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2757.2034644336056</GPM>
+          <M>99.4900746654924</M>
+          <KW>227.94080935045664</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3066.8527783264582</GPM>
+          <M>94.312831818296215</M>
+          <KW>232.26620542385491</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3376.5020922193108</GPM>
+          <M>88.457165780516657</M>
+          <KW>236.00288863266391</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3686.1514061121634</GPM>
+          <M>81.92305564803804</M>
+          <KW>239.14175376082482</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3995.8007190050159</GPM>
+          <M>74.710502167352352</M>
+          <KW>241.68269783935211</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4305.4500328978685</GPM>
+          <M>66.819515694269785</M>
+          <KW>243.6254790299867</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4615.0993467907209</GPM>
+          <M>58.250074665492404</M>
+          <KW>245.24471714088944</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4924.7486606835735</GPM>
+          <M>49.00228516599252</M>
+          <KW>246.20815307775986</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>5234.3979745764261</GPM>
+          <M>39.076052069255655</M>
+          <KW>246.66986500000002</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>5544.0472884692787</GPM>
+          <M>28.471385434250228</M>
+          <KW>246.72195610543162</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>5853.6966023621313</GPM>
+          <M>17.188273267597003</M>
+          <KW>246.3653131725619</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>5969.8708779017637</GPM>
+          <M>12.835848500222045</M>
+          <KW>245.92364024467008</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="ESF125-365">
+      <Specifications>
+        <D_min>315.0</D_min>
+        <D_max>390.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>221.58468995243751</M>
+          <KW>126.50084096826436</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>328.73127479525959</GPM>
+          <M>218.13887247324607</M>
+          <KW>152.07953269404237</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>650.06342745106872</GPM>
+          <M>214.31225594530318</M>
+          <KW>178.58874143568818</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>969.72839939382641</GPM>
+          <M>208.96451278240187</M>
+          <KW>204.63374429045876</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1294.3062336505755</GPM>
+          <M>200.57141200951244</M>
+          <KW>231.60715891897982</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1615.5206839929874</GPM>
+          <M>186.59877734839475</M>
+          <KW>256.72164475788259</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1938.3474947928955</GPM>
+          <M>169.32726397146249</M>
+          <KW>276.25596378410299</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2257.0700547963162</GPM>
+          <M>148.88219665809712</M>
+          <KW>290.39990864704306</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2581.6478890530653</GPM>
+          <M>125.75549069150821</M>
+          <KW>298.81804593847055</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2901.312860995823</GPM>
+          <M>99.932824330541743</M>
+          <KW>301.78440268573216</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3225.8906952525721</GPM>
+          <M>71.056230537024987</M>
+          <KW>299.25575551393655</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3545.5556671953852</GPM>
+          <M>39.366408226997412</M>
+          <KW>291.1325301204819</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="ESF150-360">
+      <Specifications>
+        <D_min>280.0</D_min>
+        <D_max>355.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>181.207</M>
+          <KW>178.528</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>322.67770844980475</GPM>
+          <M>179.857</M>
+          <KW>194.073</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>638.60317924133517</GPM>
+          <M>178.262</M>
+          <KW>210.559</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>954.5302350651798</GPM>
+          <M>176.176</M>
+          <KW>227.046</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1270.4557058567102</GPM>
+          <M>173.108</M>
+          <KW>243.533</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1590.4372743401477</GPM>
+          <M>169.305</M>
+          <KW>260.02</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1902.3082324720851</GPM>
+          <M>165.378</M>
+          <KW>273.209</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2222.278705729324</GPM>
+          <M>160.348</M>
+          <KW>290.167</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2542.2650293097036</GPM>
+          <M>154.458</M>
+          <KW>307.596</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2858.1936701658624</GPM>
+          <M>147.71</M>
+          <KW>325.967</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3174.1223110220212</GPM>
+          <M>140.716</M>
+          <KW>341.511</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3490.05095187818</GPM>
+          <M>132.84</M>
+          <KW>358.557</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3805.9795927343394</GPM>
+          <M>123.824</M>
+          <KW>374.881</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4121.9082335904988</GPM>
+          <M>113.864</M>
+          <KW>390.697</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4437.8368744466578</GPM>
+          <M>102.969</M>
+          <KW>406.31</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4753.7655153028173</GPM>
+          <M>91.139</M>
+          <KW>421.325</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>5069.6941561589762</GPM>
+          <M>78.373</M>
+          <KW>435.538</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>5385.6227970151352</GPM>
+          <M>64.673</M>
+          <KW>448.949</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>5701.5514378712942</GPM>
+          <M>50.038</M>
+          <KW>461.558</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>6017.4800787274532</GPM>
+          <M>34.468</M>
+          <KW>473.366</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>6333.4087195836121</GPM>
+          <M>17.962</M>
+          <KW>484.373</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>6437.009736171927</GPM>
+          <M>12.035</M>
+          <KW>487.361</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="FK150-290">
+      <Specifications>
+        <D_min>260.0</D_min>
+        <D_max>301.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>144.78034210170713</M>
+          <KW>88.9689949733581</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>115.11857023411373</GPM>
+          <M>144.66927541474436</M>
+          <KW>93.262594404325881</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>257.934486651054</GPM>
+          <M>145.04534589897648</M>
+          <KW>99.347458163858676</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>508.75678461383933</GPM>
+          <M>144.30207476103155</M>
+          <KW>112.90925066875377</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>759.0541505797961</GPM>
+          <M>144.02044099864187</M>
+          <KW>125.13913536891599</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>990.36714436619661</GPM>
+          <M>142.3510146760799</M>
+          <KW>138.50369233185086</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1110.9584315665863</GPM>
+          <M>140.55540317369784</M>
+          <KW>145.32040178499252</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1360.7516887550262</GPM>
+          <M>137.91033471016921</M>
+          <KW>159.07340578631189</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1609.524855737526</GPM>
+          <M>134.66014316744836</M>
+          <KW>174.19230232490806</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1859.3181129269658</GPM>
+          <M>130.34791336783626</M>
+          <KW>190.2044698050404</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2107.0912799094657</GPM>
+          <M>124.97519182743997</M>
+          <KW>207.29177520834591</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2356.8845370989056</GPM>
+          <M>118.52445199623861</M>
+          <KW>225.46747900776783</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2605.6577040814055</GPM>
+          <M>110.99347895059637</M>
+          <KW>244.73105459384704</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2855.4509612708453</GPM>
+          <M>102.38006371759089</M>
+          <KW>265.0822131557975</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3104.2241282533452</GPM>
+          <M>92.686008581788257</M>
+          <KW>286.52044099864187</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3353.0573961172851</GPM>
+          <M>81.912644383181358</M>
+          <KW>309.04602816654817</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3601.830563099785</GPM>
+          <M>70.061732785055018</M>
+          <KW>332.65997105248135</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3851.6238202892248</GPM>
+          <M>57.133275330310239</M>
+          <KW>357.36195650125559</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4100.3969872717247</GPM>
+          <M>43.127244926639145</M>
+          <KW>383.15132203389828</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4349.1701542542246</GPM>
+          <M>28.043510529124436</M>
+          <KW>410.02706816654817</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4500.8703575305673</GPM>
+          <M>18.660317584144497</M>
+          <KW>426.65874288075771</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="FK150-290-60">
+      <Specifications>
+        <D_min>228.0</D_min>
+        <D_max>265.0</D_max>
+        <Base_RPM>3550.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>162.51035137582755</M>
+          <KW>105.80247592307479</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>121.96384362604032</GPM>
+          <M>162.38568330236916</M>
+          <KW>110.90845076919202</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>273.2719954017445</GPM>
+          <M>162.80780791989289</M>
+          <KW>118.14460816993531</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>539.00889140770244</GPM>
+          <M>161.97351472758862</M>
+          <KW>134.27237521285375</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>804.18964148650628</GPM>
+          <M>161.65739168891608</M>
+          <KW>148.81622930402753</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1049.2571553156142</GPM>
+          <M>159.78352501380476</M>
+          <KW>164.70944262757808</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1177.0191390238933</GPM>
+          <M>157.76802033996171</M>
+          <KW>172.81534063750012</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1422.0866528530013</GPM>
+          <M>154.21200389381736</M>
+          <KW>188.70855395111984</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1667.1541666821094</GPM>
+          <M>149.37527011933925</M>
+          <KW>205.6796980295899</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1912.2216805112173</GPM>
+          <M>143.25804554868953</M>
+          <KW>223.72881355932203</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2157.2891943403254</GPM>
+          <M>135.86030999039023</M>
+          <KW>242.85590507955562</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2402.3567081694334</GPM>
+          <M>127.18206841263836</M>
+          <KW>263.06078496152824</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2647.4242219985414</GPM>
+          <M>117.22331553787752</M>
+          <KW>284.34355072094372</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2892.4917358276495</GPM>
+          <M>105.983991253096</M>
+          <KW>306.70460391263836</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3137.5592496567575</GPM>
+          <M>93.4641951556609</M>
+          <KW>330.14324900776783</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3382.6267634858656</GPM>
+          <M>79.663926598379904</M>
+          <KW>354.66060197715298</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3627.6942773149736</GPM>
+          <M>64.583185390029571</M>
+          <KW>380.25585093757429</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3872.7617911440817</GPM>
+          <M>48.221971408821427</M>
+          <KW>406.93902331994643</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4117.8293049731897</GPM>
+          <M>30.580285434250228</M>
+          <KW>434.69974377011379</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4362.8968188022978</GPM>
+          <M>11.6579294719277</M>
+          <KW>463.53880628373302</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="FK150-310">
+      <Specifications>
+        <D_min>260.0</D_min>
+        <D_max>328.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>166.41801608035672</M>
+          <KW>82.144329669985837</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>105.98727836120381</GPM>
+          <M>165.07985535170781</M>
+          <KW>85.685032618992679</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>250.43719147157185</GPM>
+          <M>164.59724213142843</M>
+          <KW>93.791775208345911</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>493.75035494137364</GPM>
+          <M>165.5567252920296</M>
+          <KW>109.85339035118395</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>592.96167152428768</GPM>
+          <M>165.4363400228186</M>
+          <KW>117.54631295112137</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>740.74586031777858</GPM>
+          <M>165.07853078658795</M>
+          <KW>128.63777746384395</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>889.21318406040257</GPM>
+          <M>164.23401250142123</M>
+          <KW>140.21840889160533</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1133.5263475302044</GPM>
+          <M>162.25983578051664</M>
+          <KW>160.77196879857619</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1376.8395110000062</GPM>
+          <M>159.57018956973307</M>
+          <KW>182.23351652485572</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1620.1526744698081</GPM>
+          <M>155.95922315891409</M>
+          <KW>204.60876251421033</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1863.4658379396099</GPM>
+          <M>151.42674455412384</M>
+          <KW>228.0052951731661</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2106.7790014094117</GPM>
+          <M>145.97237351699923</M>
+          <KW>252.3308332117565</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2350.0921648792135</GPM>
+          <M>139.60156994278457</M>
+          <KW>277.58555819770831</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2593.4053283490154</GPM>
+          <M>132.31558455799346</M>
+          <KW>303.76989412781404</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2836.7184918188172</GPM>
+          <M>124.11210160803567</M>
+          <KW>330.88452147758757</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3080.031655288619</GPM>
+          <M>115.00010998188713</M>
+          <KW>358.92769259275726</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3323.3448187584209</GPM>
+          <M>104.9749557436010</M>
+          <KW>387.89947934032559</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3566.6579822282227</GPM>
+          <M>94.03728669567953</M>
+          <KW>417.80005423199859</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3809.9711456980245</GPM>
+          <M>82.187063185390025</M>
+          <KW>448.62899497335808</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4053.2843091678263</GPM>
+          <M>69.421712854979603</M>
+          <KW>480.38634002281862</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4296.5974726376282</GPM>
+          <M>55.744116606861973</M>
+          <KW>513.07204487796908</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4539.91063610743</GPM>
+          <M>41.15426303893817</M>
+          <KW>546.68598884976451</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>4783.2237995772319</GPM>
+          <M>25.651878033068984</M>
+          <KW>581.228273267597</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>5026.5369630470338</GPM>
+          <M>9.2372449266391456</M>
+          <KW>616.69899829377647</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>5087.5678461383933</GPM>
+          <M>6.7909062534571932</M>
+          <KW>625.56799052132694</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="ESF100-250">
+      <Specifications>
+        <D_min>200.0</D_min>
+        <D_max>264.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>103.84905660377359</M>
+          <KW>40.086956521739133</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>158.50372483753367</GPM>
+          <M>102.79245283018868</M>
+          <KW>43.913043478260867</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>317.00744967506733</GPM>
+          <M>101.66037735849056</M>
+          <KW>48.260869565217391</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>475.51117451260103</GPM>
+          <M>100.30188679245283</M>
+          <KW>52.173913043478258</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>634.01489935013467</GPM>
+          <M>98.79245283018868</M>
+          <KW>57.391304347826086</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>792.51862418766837</GPM>
+          <M>96.905660377358487</M>
+          <KW>63.652173913043477</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>951.02234902520206</GPM>
+          <M>94.79245283018868</M>
+          <KW>71.478260869565218</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1109.5260738627357</GPM>
+          <M>92.30188679245283</M>
+          <KW>79.304347826086952</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1268.0297987002693</GPM>
+          <M>89.377358490566041</M>
+          <KW>88.086956521739126</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1426.533523537803</GPM>
+          <M>86.13207547169811</M>
+          <KW>97.56521739130434</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1585.0372483753367</GPM>
+          <M>82.471698113207548</M>
+          <KW>107.56521739130434</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1743.5409732128703</GPM>
+          <M>78.30188679245283</M>
+          <KW>118.08695652173913</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1902.044698050404</GPM>
+          <M>73.577358490566041</M>
+          <KW>129.28260869565217</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2060.5484228879377</GPM>
+          <M>68.424528301886792</M>
+          <KW>140.79565217391304</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2219.0521477254714</GPM>
+          <M>62.660377358490566</M>
+          <KW>152.82608695652174</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2377.555872563005</GPM>
+          <M>56.290566037735846</M>
+          <KW>165.37391304347827</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2536.0595974005387</GPM>
+          <M>49.377358490566041</M>
+          <KW>178.43826086956522</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2694.5633222380724</GPM>
+          <M>41.924528301886792</M>
+          <KW>192.0195652173913</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>2853.067047075606</GPM>
+          <M>33.913207547169811</M>
+          <KW>206.11739130434783</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3011.5707719131397</GPM>
+          <M>25.351608822080302</M>
+          <KW>220.73172088610531</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>3143.1979450411513</GPM>
+          <M>17.8188679245283</M>
+          <KW>232.06739130434783</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+    <PumpModel name="ESF100-375">
+      <Specifications>
+        <D_min>348.0</D_min>
+        <D_max>408.0</D_max>
+        <Base_RPM>2900.0</Base_RPM>
+      </Specifications>
+      <PerformanceData>
+        <DataPoint>
+          <GPM>0.0</GPM>
+          <M>220.81447963800906</M>
+          <KW>94.751131221719461</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>158.50372483753367</GPM>
+          <M>219.54751131221718</M>
+          <KW>102.35294117647059</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>317.00744967506733</GPM>
+          <M>217.28506787330318</M>
+          <KW>119.5475113122172</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>475.51117451260103</GPM>
+          <M>212.71493212669682</M>
+          <KW>136.92307692307693</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>634.01489935013467</GPM>
+          <M>205.42986425339367</M>
+          <KW>144.34389140271495</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>792.51862418766837</GPM>
+          <M>196.38009049773757</M>
+          <KW>160.45248868778282</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>951.02234902520206</GPM>
+          <M>185.11312217194569</M>
+          <KW>165.42986425339367</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1109.5260738627357</GPM>
+          <M>171.7918552036199</M>
+          <KW>178.68778280542987</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1268.0297987002693</GPM>
+          <M>156.32126696832578</M>
+          <KW>182.17194570135746</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1426.533523537803</GPM>
+          <M>139.63800904977377</M>
+          <KW>194.27601810000002</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1585.0372483753367</GPM>
+          <M>120.73303167420815</M>
+          <KW>197.66515837104071</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1743.5409732128703</GPM>
+          <M>99.680090497737568</M>
+          <KW>209.68325791855204</KW>
+        </DataPoint>
+        <DataPoint>
+          <GPM>1807.5097495000001</GPM>
+          <M>88.452488687782808</M>
+          <KW>211.33484162895928</KW>
+        </DataPoint>
+      </PerformanceData>
+    </PumpModel>
+  </PumpDatabase>
+</script>
+
+  <script>
+    /* ---------- Utilities ---------- */
+    function parseXmlFromScript(id) {
+      const script = document.getElementById(id);
+      if (!script) return null;
+      const text = script.textContent.trim();
+      return new DOMParser().parseFromString(text, "application/xml");
+    }
+
+    function parseFloatSafeNum(s) {
+      const v = parseFloat(s);
+      return Number.isFinite(v) ? v : NaN;
+    }
+
+    function metersToFeet(m) { return m * 3.280839895; }
+
+    function formatNum(v, decimals=2) {
+      return (typeof v === 'number' && !isNaN(v)) ? v.toFixed(decimals) : v;
+    }
+
+    function escapeHtml(s) {
+      if (!s) return '';
+      return s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+    }
+
+    /* ---------- XML DOMs (empty unless user provides) ---------- */
+    const flowsXml = parseXmlFromScript('flows-xml');
+    const dbXml = parseXmlFromScript('db-xml');
+
+    /* ---------- Elements ---------- */
+    const flowSelect = document.getElementById('flowSelect');
+    const modelSelect = document.getElementById('modelSelect');
+    const specsContent = document.getElementById('specsContent');        
+    const predictBtn = document.getElementById('predictBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    /* ---------- Populate flows ---------- */
+    function populateFlows() {
+      if (!flowsXml) return;
+      const flowNodes = Array.from(flowsXml.getElementsByTagName('Flow'));
+      flowNodes.forEach(flow => {
+        const rate = flow.getAttribute('rate') || flow.getAttribute('Rate') || flow.getAttribute('FLOW');
+        if (!rate) return;
+        const opt = document.createElement('option');
+        opt.value = rate;
+        opt.textContent = rate;
+        flowSelect.appendChild(opt);
+      });
+    }
+
+    /* ---------- Flow -> Models ---------- */
+    function onFlowChange() {
+      const rate = flowSelect.value;
+      modelSelect.innerHTML = '<option value="">-- select model --</option>';
+      modelSelect.disabled = true;
+      clearSpecsAndPerf();
+      if (!rate || !flowsXml) return;
+
+      const flowNode = Array.from(flowsXml.getElementsByTagName('Flow'))
+        .find(f => (f.getAttribute('rate') || f.getAttribute('Rate')) === rate);
+
+      if (!flowNode) return;
+
+      const modelNodes = Array.from(flowNode.getElementsByTagName('PumpModel'));
+      const modelNames = [...new Set(modelNodes.map(n => n.textContent.trim()).filter(Boolean))];
+      modelNames.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        modelSelect.appendChild(opt);
+      });
+      modelSelect.disabled = modelNames.length === 0;
+    }
+
+    /* ---------- Model -> Specs & Performance ---------- */
+    function onModelChange() {
+      const model = modelSelect.value;
+      clearSpecsAndPerf();
+      if (!model) {
+        specsContent.innerHTML = '<div class="hint">Select a pump model to see specifications and performance data.</div>';
+        return;
+      }
+      if (!dbXml) {
+        specsContent.innerHTML = `<div class="hint">No database XML (db-xml) found. Please add it in a script#db-xml.</div>`;
+        return;
+      }
+
+      // find PumpModel node by attribute name OR element PumpModel name text (support both)
+      const pumpModels = Array.from(dbXml.getElementsByTagName('PumpModel'));
+      // try attribute name first, then element <ModelName> or text
+      const node = pumpModels.find(n => n.getAttribute('name') === model || (n.textContent && n.textContent.trim() === model));
+
+      if (!node) {
+        specsContent.innerHTML = `<div class="hint">Model <strong>${escapeHtml(model)}</strong> not found in PumpDatabase.</div>`;
+        return;
+      }
+
+      // Read specs (support element names D_min / D_max / Base_RPM)
+      const spec = node.querySelector('Specifications') || node;
+      const dmin = spec?.querySelector('D_min')?.textContent ?? spec?.getAttribute('d_min') ?? 'N/A';
+      const dmax = spec?.querySelector('D_max')?.textContent ?? spec?.getAttribute('d_max') ?? 'N/A';
+      const baseRpm = spec?.querySelector('Base_RPM')?.textContent ?? spec?.getAttribute('base_rpm') ?? 'N/A';
+
+      document.getElementById('inputSection').style.display = 'block';
+      document.getElementById('baseInfo').style.display = 'block';
+      document.getElementById('baseRpmText').textContent = baseRpm ? baseRpm + ' RPM' : '—';
+      document.getElementById('impeller_size').textContent = (dmin && dmax) ? `${dmin} mm - ${dmax} mm` : '—';
+
+      // Build normalized datapoints array: { gpm, head_m, kw }
+      const dpNodes = Array.from(node.querySelectorAll('PerformanceData > DataPoint'));
+      const datapoints = dpNodes.map(dp => {
+        // support either child tags <GPM>, <M>, <KW> or attributes
+        const gpm = dp.querySelector('GPM')?.textContent ?? dp.getAttribute('gpm') ?? dp.getAttribute('GPM') ?? '';
+        const m = dp.querySelector('M')?.textContent ?? dp.getAttribute('m') ?? dp.getAttribute('M') ?? '';
+        const kw = dp.querySelector('KW')?.textContent ?? dp.getAttribute('kw') ?? dp.getAttribute('KW') ?? '';
+        return {
+          gpm: parseFloatSafeNum(gpm),
+          head_m: parseFloatSafeNum(m),
+          kw: parseFloatSafeNum(kw)
+        };
+      }).filter(dp => !isNaN(dp.gpm) && !isNaN(dp.head_m) && !isNaN(dp.kw));
+
+
+      // show curve range / head range
+      const gpmList = datapoints.map(d => d.gpm);
+      const headList = datapoints.map(d => d.head_m);
+      if (gpmList.length) {
+        const min = Math.min(...gpmList);
+        const max = Math.max(...gpmList);
+        const minh = Math.min(...headList);
+        const maxh = Math.max(...headList);
+        document.getElementById('curveRange').textContent = `${min.toFixed(2)} — ${max.toFixed(2)} GPM`;
+        // convert meters to bar: 1 m of water = 0.0980665 bar
+        document.getElementById('headRange').textContent = `${(maxh * 0.0980665).toFixed(2)} — ${(minh * 0.0980665).toFixed(2)} bar`;
+      } else {
+        document.getElementById('curveRange').textContent = '—';
+        document.getElementById('headRange').textContent = '—';
+      }
+    }
+
+    /* ---------- Helpers: interpolation ---------- */
+    // expects arrays: dataPoints = [{gpm, head_m, kw}, ...]
+    function interpAtFlow(dataPoints, flow) {
+      const sorted = dataPoints.slice().sort((a,b) => a.gpm - b.gpm);
+      if (flow <= sorted[0].gpm) return { head_m: sorted[0].head_m, kw: sorted[0].kw, note: 'below_range' };
+      if (flow >= sorted[sorted.length-1].gpm) return { head_m: sorted[sorted.length-1].head_m, kw: sorted[sorted.length-1].kw, note: 'above_range' };
+
+      for (let i=0;i<sorted.length-1;i++){
+        const a = sorted[i], b = sorted[i+1];
+        if (flow >= a.gpm && flow <= b.gpm) {
+          const t = (flow - a.gpm) / (b.gpm - a.gpm);
+          const head_m = a.head_m + t*(b.head_m - a.head_m);
+          const kw = a.kw + t*(b.kw - a.kw);
+          return { head_m, kw, note: 'interpolated' };
+        }
+      }
+      return { head_m: sorted[0].head_m, kw: sorted[0].kw, note: 'fallback' };
+    }
+
+    // interpolate arrays flow[], head[], kw[] at flow_p
+    function interpolateHP(flowArr, headArr, kwArr, flow_p) {
+      if (flow_p <= flowArr[0]) return { head_m: headArr[0], kw_p: kwArr[0], note:'below_range' };
+      if (flow_p >= flowArr[flowArr.length-1]) return { head_m: headArr[flowArr.length-1], kw_p: kwArr[flowArr.length-1], note:'above_range' };
+      for (let i=0;i<flowArr.length-1;i++){
+        const a = flowArr[i], b = flowArr[i+1];
+        if (flow_p >= a && flow_p <= b) {
+          const t = (flow_p - a) / (b - a);
+          const head_m = headArr[i] + t*(headArr[i+1]-headArr[i]);
+          const kw_p = kwArr[i] + t*(kwArr[i+1]-kwArr[i]);
+          return { head_m, kw_p, note:'interpolated' };
+        }
+      }
+      return { head_m: headArr[0], kw_p: kwArr[0], note:'fallback' };
+    }
+
+    /* ---------- Efficiency ---------- */
+    function computeEfficiency(q_gpm, head_m, power_kw){
+      const head_ft = metersToFeet(head_m);
+      const hydraulic_hp = (q_gpm * head_ft) / 3960; // hydraulic horsepower
+      const hydraulic_kw = hydraulic_hp * 0.745699872; // hp -> kW
+      if (!power_kw || power_kw <= 0 || isNaN(power_kw)) return NaN;
+      return (hydraulic_kw / power_kw) * 100;
+    }
+
+    /* ---------- Corrected D solver (binary search) ----------
+       Scales the performance curve by D_ratio to make the curve pass near (flow_p, head_p).
+       Inputs:
+         flowBase[] (base curve gpm), headBase[], kwBase[]
+         flow_p (target flow), head_p (target head at new RPM scaling already accounted for)
+         Dmin, Dmax, initialDref
+       We perform binary search on D between Dmin and Dmax.
+    */
+    function correctedDBinary(flowBase, headBase, kwBase, flow_p, head_p, D_min, D_max, D_ref, ratioRPM) {
+      const tol = 0.1; // meters
+      let lo = D_min, hi = D_max;
+      let bestD = D_ref;
+      let bestErr = Infinity;
+      let iterations = 0;
+      while (iterations < 40) {
+        const mid = (lo + hi)/2;
+        const D_ratio = mid / D_max; // use baseD as D_max (consistent with your usage)
+        // scale flow & head according to affinity laws for diameter and RPM:
+        const scaledFlow = flowBase.map(f => f * D_ratio * ratioRPM);
+        const scaledHead = headBase.map(h => h * Math.pow(D_ratio,2) * Math.pow(ratioRPM,2));
+        const interp = interpolateHP(scaledFlow, scaledHead, kwBase, flow_p);
+        const h_at_mid = interp.head_m;
+        const err = h_at_mid - head_p;
+        if (Math.abs(err) < Math.abs(bestErr)) {
+          bestErr = err;
+          bestD = mid;
+        }
+        if (Math.abs(err) <= tol) {
+          return mid;
+        }
+        // if computed head is too low, need larger D (increase D -> head increases)
+        if (h_at_mid < head_p) {
+          lo = mid;
+        } else {
+          hi = mid;
+        }
+        iterations++;
+      }
+      if (Math.abs(bestErr) > tol) console.warn('correctedDBinary: best error', bestErr);
+      return bestD;
+    }
+
+    /* ---------- Plot ---------- */
+    function plotPumpCurve(flowArr, headArr, targetQ, targetH, H_150) {
+      
+      const ctx = document.getElementById('pumpChart').getContext('2d');
+      const datasetCurve = flowArr.map((f, i) => ({ x: f, y: headArr[i] }));
+      const datasetTarget = [{ x: targetQ, y: targetH }];
+
+      const dataset150Target = [{ x: targetQ * 1.5, y: H_150 }];
+
+      window.myPumpChart = new Chart(ctx, {
+        type: 'scatter', // use scatter to allow linear x-axis
+        data: {
+          datasets: [
+            {
+              label: 'Head (m)',
+              data: datasetCurve,
+              borderColor: 'blue',
+              backgroundColor: 'transparent',
+              showLine: true,       // connect points with a line
+              pointRadius: 0,       // hide points
+              tension: 0.25
+            },
+            {
+              label: 'Duty Point',
+              data: datasetTarget,
+              backgroundColor: 'red',
+              pointRadius: 6,
+              showLine: false
+            },
+            {
+              label: '150% of Duty Point',
+              data: dataset150Target,
+              backgroundColor: 'red',
+              pointRadius: 6,
+              showLine: false
+            }          ]
+        },
+        options: {
+          scales: {
+            x: {
+              type: 'linear',         // important: linear axis
+              title: { display: true, text: 'Flow (GPM)' },
+              min: 0,                 // optional: set min flow
+              max: Math.max(...flowArr), // optional: set max flow
+              ticks: { stepSize: 100 }   // now this works
+            },
+            y: {
+              title: { display: true, text: 'Head (m)' }
+            }
+          },
+          plugins: { legend: { display: true } }
+        }
+      });
+    }
+
+    /* ---------- Main predict flow ---------- */
+    function readInputs() {
+      const headBar = parseFloat(document.getElementById('inputHead').value);
+      const speed = parseFloat(document.getElementById('inputSpeed').value);
+      // user enters head in bar; convert to meters (1 bar = 10.197162129779 m of water) approx
+      const head_m = Number.isFinite(headBar) ? headBar * 10.197162129779 : NaN;
+      return { h_input: head_m, rrpm: speed };
+    }
+
+    function startPredict(datapoints, q_input, h_input_m, baseRPM, newRPM, baseD, minD) {
+      // datapoints: [{gpm, head_m, kw}, ...]
+      // ensure numeric
+      q_input = parseFloat(q_input);
+      if (isNaN(q_input) || isNaN(h_input_m) || isNaN(newRPM) || isNaN(baseRPM)) {
+        alert('Please provide numeric Flow, Pressure (bar) and RPM values.');
+        return;
+      }
+
+      // 1) find base curve interp at q_input
+      const interpBase = interpAtFlow(datapoints, q_input);
+      const kw_base_from_curve = interpBase.kw;
+      const head_from_curve = interpBase.head_m;
+
+      const ratioRPM = newRPM / baseRPM;
+      // D_ref (initial guess) from H ratio (H ∝ D^2)
+      const H_Ratio = (h_input_m / head_from_curve) || 1;
+      const D_ref = baseD * Math.sqrt(H_Ratio);
+
+      const flowBase = datapoints.map(d => d.gpm);
+      const headBase = datapoints.map(d => d.head_m);
+      const kwBase = datapoints.map(d => d.kw);
+
+      // find corrected D using binary search
+      let D = correctedDBinary(flowBase, headBase, kwBase, q_input, h_input_m, minD, baseD, D_ref, ratioRPM);
+      let D_Status = "OK";
+      if (D < minD) { D = parseFloat(minD); D_Status = "Below the range"; }
+      if (D > baseD) { D = parseFloat(baseD); D_Status = "Above the range"; }
+
+      const D_Ratio = D / baseD;
+
+      // scale full curve to new RPM and D
+      const scaledFlow = flowBase.map(f => f * D_Ratio * ratioRPM);
+      const scaledHead = headBase.map(h => h * Math.pow(D_Ratio,2) * Math.pow(ratioRPM,2));
+      const scaledKw = kwBase.map(k => k * Math.pow(D_Ratio,3) * Math.pow(ratioRPM,3));
+
+      const newScaledAtQ = interpolateHP(scaledFlow, scaledHead, scaledKw, q_input);
+      const H_curve_new = newScaledAtQ.head_m;
+      const P_curve_new = newScaledAtQ.kw_p;
+
+      const interp150 = interpolateHP(scaledFlow, scaledHead, scaledKw, q_input * 1.5);
+      const H_150 = interp150.head_m;
+      const P_150 = interp150.kw_p;
+
+      const eff_base = computeEfficiency(q_input, H_curve_new, P_curve_new);
+      const eff_new = computeEfficiency(q_input * 1.5, H_150, P_150);
+
+      // update UI
+      document.getElementById('results').style.display = 'block';
+      document.getElementById('res_q_base').textContent = `${formatNum(q_input,2)} GPM`;
+      document.getElementById('res_h_base').textContent = `${formatNum(H_curve_new,2)} m / ${formatNum(H_curve_new * 0.0980665,2)} bar`;
+      document.getElementById('res_p_base').textContent = `${formatNum(P_curve_new,3)} kW / ${formatNum(P_curve_new / 0.745699872,3)} hp`;
+      document.getElementById('res_eff_base').textContent = isNaN(eff_base) ? 'N/A' : `${formatNum(eff_base,2)} %`;
+
+      document.getElementById('res_q_new').textContent = `${formatNum(q_input * 1.5,2)} GPM`;
+      document.getElementById('res_h_new').textContent = `${formatNum(H_150,2)} m / ${formatNum(H_150 * 0.0980665,2)} bar`;
+      document.getElementById('res_p_new').textContent = `${formatNum(P_150,3)} kW / ${formatNum(P_150 / 0.745699872,3)} hp`;
+      document.getElementById('res_eff_new').textContent = isNaN(eff_new) ? 'N/A' : `${formatNum(eff_new,2)} %`;
+
+      // status & curve check
+      const statusEl = document.getElementById('statusMsg');
+      statusEl.innerHTML = '';
+      if (interpBase.note === 'below_range' || interpBase.note === 'above_range') {
+        statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${formatNum(q_input,2)} GPM) is outside the pump curve range (${formatNum(Math.min(...flowBase),2)}—${formatNum(Math.max(...flowBase),2)} GPM). Interpolation used nearest endpoint; predictions may be inaccurate.</div>`;
+      } else if (D_Status !== 'OK') {
+        statusEl.innerHTML += `<div class="warn">Note: the calculated impeller diameter is ${D.toFixed(0)} mm (status: ${escapeHtml(D_Status)}). Predictions may be limited.</div>`;
+      } else {
+        statusEl.innerHTML += `<div class="ok">Calculated impeller diameter: ${D.toFixed(0)} mm.</div>`;
+      }
+
+      // curve check table
+      const minG = Math.min(...flowBase);
+      const maxG = Math.max(...flowBase);
+      const minG_new = minG * ratioRPM * D_Ratio;
+      const maxG_new = maxG * ratioRPM * D_Ratio;
+      const inRange = (q_input >= minG_new - 1e-6) && (q_input <= maxG_new + 1e-6);
+
+      document.getElementById('curveCheckCard').style.display = 'block';
+      const curveCheckEl = document.getElementById('curveCheck');
+      curveCheckEl.innerHTML = `
+        <table border="1" cellpadding="6" style="border-collapse: collapse; width:100%; text-align:center;">
+          <thead>
+            <tr>
+              <th>Predicted Flow (GPM)</th>
+              <th>Curve Range (GPM)</th>
+              <th>Status</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${formatNum(q_input,2)}</td>
+              <td>${formatNum(minG_new,2)} — ${formatNum(maxG_new,2)}</td>
+              <td class="${inRange ? 'ok' : 'warn'}"><strong>${inRange ? 'In Range' : 'Out of Range'}</strong></td>
+              <td>${inRange ? '' : 'Operating outside the curve is not recommended.'}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top:8px;"><strong>Summary:</strong><br> Rated Flow=${formatNum(q_input,2)} GPM, Rated Pressure=${formatNum(H_curve_new,2)} m, Power at 100%=${formatNum(P_curve_new,3)} kW, Power at 150%=${formatNum(P_150,3)} kW → at ${newRPM} RPM.</div>
+      `;
+
+      // plot scaled curve and target point
+      plotPumpCurve(scaledFlow, scaledHead, q_input, H_curve_new, H_150);
+    }
+
+    /* ---------- Orchestration: predict() ---------- */
+    function predict() {
+      const model = modelSelect.value;
+      if (!model || model.trim() === "") {
+        alert("Please select a pump model first.");
+        return;
+      }
+      if (!dbXml) {
+        specsContent.innerHTML = '<span class="hint">No specification data available in the database (db-xml missing).</span>';
+        return;
+      }
+      // find model node
+      const pumpModels = Array.from(dbXml.getElementsByTagName('PumpModel'));
+      const node = pumpModels.find(n => n.getAttribute('name') === model || (n.textContent && n.textContent.trim() === model));
+      if (!node) {
+        specsContent.innerHTML = `<div class="hint">Model <strong>${escapeHtml(model)}</strong> not found in PumpDatabase.</div>`;
+        return;
+      }
+
+      const spec = node.querySelector('Specifications') || node;
+      const dmin = parseFloatSafeNum(spec?.querySelector('D_min')?.textContent ?? spec?.getAttribute('d_min') ?? 'NaN');
+      const dmax = parseFloatSafeNum(spec?.querySelector('D_max')?.textContent ?? spec?.getAttribute('d_max') ?? 'NaN');
+      const baseRpm = parseFloatSafeNum(spec?.querySelector('Base_RPM')?.textContent ?? spec?.getAttribute('base_rpm') ?? 'NaN');
+
+      // collect datapoints normalized
+      const dpNodes = Array.from(node.querySelectorAll('PerformanceData > DataPoint'));
+      const datapoints = dpNodes.map(dp => {
+        const gpm = dp.querySelector('GPM')?.textContent ?? dp.getAttribute('gpm') ?? '';
+        const m = dp.querySelector('M')?.textContent ?? dp.getAttribute('m') ?? '';
+        const kw = dp.querySelector('KW')?.textContent ?? dp.getAttribute('kw') ?? '';
+        return { gpm: parseFloatSafeNum(gpm), head_m: parseFloatSafeNum(m), kw: parseFloatSafeNum(kw) };
+      }).filter(d => !isNaN(d.gpm) && !isNaN(d.head_m) && !isNaN(d.kw));
+
+      if (!datapoints.length) {
+        alert('No performance datapoints found for this model.');
+        return;
+      }
+
+      const q_input = parseFloat(flowSelect.value);
+      const { h_input, rrpm } = readInputs();
+      if (isNaN(q_input) || isNaN(h_input) || isNaN(rrpm)) {
+        alert('Please enter numeric Flow, Pressure (bar) and Speed (RPM).');
+        return;
+      }
+
+      startPredict(datapoints, q_input, h_input, baseRpm, rrpm, dmax, dmin);
+    }
+
+    function resetResults(){
+      document.getElementById('results').style.display = 'none';
+      document.getElementById('statusMsg').innerHTML = '';
+      document.getElementById('curveCheckCard').style.display = 'none';
+      if (window.myPumpChart) {
+        window.myPumpChart.destroy();
+        window.myPumpChart = null;
+      }
+    }
+
+    function clearSpecsAndPerf() {
+      document.getElementById('inputSection').style.display = 'none';
+      document.getElementById('baseInfo').style.display = 'none';
+    }
+
+    /* ---------- Attach events & init ---------- */
+    flowSelect.addEventListener('change', onFlowChange);
+    modelSelect.addEventListener('change', onModelChange);
+    predictBtn.addEventListener('click', predict);
+    resetBtn.addEventListener('click', resetResults);
+    populateFlows();
+
+  </script>
+</body>
+</html>
