@@ -26,11 +26,16 @@
   <a href="index.html">Main Page</a>
   <br>
 
-  <label for="flowSelect">Flow</label>
-  <select id="flowSelect"><option value="">-- select flow rate --</option></select>
-
-  <label for="modelSelect">Pump Model</label>
-  <select id="modelSelect" disabled><option value="">-- select model --</option></select>
+  <div style="display: flex; gap: 20px; max-width: 50%;">
+    <div style="flex: 1;">
+    <label for="flowSelect">Flow</label>
+    <select id="flowSelect" style="width:100%;"><option value="">-- select flow rate --</option></select>
+    </div>
+    <div style="flex: 1;">
+    <label for="modelSelect">Pump Model</label>
+    <select id="modelSelect" disabled style="width:100%;"><option value="">-- select model --</option></select>
+    </div>
+  </div> 
   
 
   <div id="baseInfo" class="card" style="display:none;" >
@@ -2848,3 +2853,4 @@
   </script>
 </body>
 </html>
+
