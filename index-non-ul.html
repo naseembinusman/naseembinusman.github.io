@@ -306,7 +306,7 @@ function computeEfficiency(q_gpm, head_m, power_kw){
 }
 
 function plotPumpCurve(flow, head, rflow, rhead) {
-    // Get the canvas context
+    
     const canvas = document.getElementById('pumpChart');
     if (!canvas) {
         console.error("Canvas element with id 'pumpChart' not found.");
@@ -314,25 +314,26 @@ function plotPumpCurve(flow, head, rflow, rhead) {
     }
     const ctx = canvas.getContext('2d');
 
-    // 1. Prepare Curve Data
-    // Map the separate flow and head arrays into {x, y} objects
     const shorterLength = flow.length;
     const curvePoints = flow.slice(0, shorterLength).map((val, index) => {return { x: val, y: head[index] };});
 
-    // 2. Prepare Rated Point Data
     const ratedPoint = [{ x: rflow, y: rhead }];
     const rflow_150 = rflow * 1.5;
     const rhead_150 = interpolateHead(flow, head, rflow_150);
     const rated_150Point = [{ x: rflow_150, y: rhead_150 }]
+  
+    let xMax = Math.max(...flow) * 1.1;
+    let yMax = Math.max(...head) * 1.1;
+    const stepX = Math.ceil(xMax / 100) * 10; 
+    xMax = Math.ceil(xMax / stepX) * stepX;      
+    const stepY = Math.ceil(yMax / 100) * 10;
+    yMax = Math.ceil(yMax / stepY) * stepY;
 
-    // 3. Destroy existing chart instance if it exists (to prevent overlays)
-    // Assumes 'window.myPumpChart' stores the instance globally
     if (window.myPumpChart) {
         window.myPumpChart.destroy();
         window.myPumpChart = null;
     }
 
-    // 4. Create the Chart
     window.myPumpChart = new Chart(ctx, {
         type: 'scatter', 
         data: {
@@ -340,10 +341,10 @@ function plotPumpCurve(flow, head, rflow, rhead) {
                 {
                     label: 'Pump Curve',
                     data: curvePoints,
-                    showLine: true,         // Connect points to make a curve
+                    showLine: true,
                     borderColor: 'blue',
                     backgroundColor: 'rgba(0, 0, 255, 0.1)',
-                    tension: 0.4,           // Smooth cubic interpolation
+                    tension: 0.4,
                     fill: false, pointRadius: 0
                 },
                 {
@@ -351,7 +352,7 @@ function plotPumpCurve(flow, head, rflow, rhead) {
                     data: ratedPoint,
                     backgroundColor: 'red',
                     borderColor: 'darkred',
-                    pointRadius: 8,         // Larger radius to annotate clearly
+                    pointRadius: 8,
                     pointStyle: 'circle'
                 },
                 {
@@ -359,7 +360,7 @@ function plotPumpCurve(flow, head, rflow, rhead) {
                     data: rated_150Point,
                     backgroundColor: 'red',
                     borderColor: 'darkred',
-                    pointRadius: 8,         // Larger radius to annotate clearly
+                    pointRadius: 8,
                     pointStyle: 'circle'
                 }              
             ]
@@ -370,12 +371,19 @@ function plotPumpCurve(flow, head, rflow, rhead) {
                 x: {
                     type: 'linear',
                     position: 'bottom',
-                    title: { display: true, text: 'Flow' }
+                    title: { display: true, text: 'Flow' },
+                    min: 0,
+                    max: xMax,
+                    ticks: { stepSize: stepX }
                 },
                 y: {
                     title: { display: true, text: 'Head' }
+                    min: 0,
+                    max: yMax,
+                    ticks: { stepSize: stepY }
                 }
-            }
+            },
+            plugins: { legend: { display: true } }
         }
     });
 }
