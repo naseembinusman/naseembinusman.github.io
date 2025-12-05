@@ -98,8 +98,6 @@
   <canvas id="pumpChart"></canvas>
 
   <script>
-    
-    /* ---------- Utilities ---------- */
 
     function parseFloatSafeNum(s) {
       const v = parseFloat(s);
@@ -118,9 +116,7 @@
     }
     
     function parseXmlFromBase64(b64) {
-    // decode Base64 to original XML string
     const xmlText = atob(b64);
-    // parse into XML DOM
     return new DOMParser().parseFromString(xmlText, "application/xml");
     }
 
@@ -129,14 +125,12 @@
     const flowsXml = parseXmlFromBase64(base64Flows);
     const dbXml = parseXmlFromBase64(base64Db);
 
-    /* ---------- Elements ---------- */
     const flowSelect = document.getElementById('flowSelect');
     const modelSelect = document.getElementById('modelSelect');
     const specsContent = document.getElementById('specsContent');        
     const predictBtn = document.getElementById('predictBtn');
     const resetBtn = document.getElementById('resetBtn');
 
-    /* ---------- Populate flows ---------- */
     function populateFlows() {
       if (!flowsXml) return;
       const flowNodes = Array.from(flowsXml.getElementsByTagName('Flow'));
@@ -150,7 +144,6 @@
       });
     }
 
-    /* ---------- Flow -> Models ---------- */
     function onFlowChange() {
       const rate = flowSelect.value;
       modelSelect.innerHTML = '<option value="">-- select model --</option>';
@@ -174,7 +167,6 @@
       modelSelect.disabled = modelNames.length === 0;
     }
 
-    /* ---------- Model -> Specs & Performance ---------- */
     function onModelChange() {
       const model = modelSelect.value;
       clearSpecsAndPerf();
@@ -187,9 +179,7 @@
         return;
       }
 
-      // find PumpModel node by attribute name OR element PumpModel name text (support both)
       const pumpModels = Array.from(dbXml.getElementsByTagName('PumpModel'));
-      // try attribute name first, then element <ModelName> or text
       const node = pumpModels.find(n => n.getAttribute('name') === model || (n.textContent && n.textContent.trim() === model));
 
       if (!node) {
@@ -197,7 +187,6 @@
         return;
       }
 
-      // Read specs (support element names D_min / D_max / Base_RPM)
       const spec = node.querySelector('Specifications') || node;
       const dmin = spec?.querySelector('D_min')?.textContent ?? spec?.getAttribute('d_min') ?? 'N/A';
       const dmax = spec?.querySelector('D_max')?.textContent ?? spec?.getAttribute('d_max') ?? 'N/A';
@@ -208,10 +197,8 @@
       document.getElementById('baseRpmText').textContent = baseRpm ? baseRpm + ' RPM' : '—';
       document.getElementById('impeller_size').textContent = (dmin && dmax) ? `${dmin} mm - ${dmax} mm` : '—';
 
-      // Build normalized datapoints array: { gpm, head_m, kw }
       const dpNodes = Array.from(node.querySelectorAll('PerformanceData > DataPoint'));
       const datapoints = dpNodes.map(dp => {
-        // support either child tags <GPM>, <M>, <KW> or attributes
         const gpm = dp.querySelector('GPM')?.textContent ?? dp.getAttribute('gpm') ?? dp.getAttribute('GPM') ?? '';
         const m = dp.querySelector('M')?.textContent ?? dp.getAttribute('m') ?? dp.getAttribute('M') ?? '';
         const kw = dp.querySelector('KW')?.textContent ?? dp.getAttribute('kw') ?? dp.getAttribute('KW') ?? '';
@@ -223,7 +210,6 @@
       }).filter(dp => !isNaN(dp.gpm) && !isNaN(dp.head_m) && !isNaN(dp.kw));
 
 
-      // show curve range / head range
       const gpmList = datapoints.map(d => d.gpm);
       const headList = datapoints.map(d => d.head_m);
       if (gpmList.length) {
@@ -232,7 +218,6 @@
         const minh = Math.min(...headList);
         const maxh = Math.max(...headList);
         document.getElementById('curveRange').textContent = `${min.toFixed(2)} — ${max.toFixed(2)} GPM`;
-        // convert meters to bar: 1 m of water = 0.0980665 bar
         document.getElementById('headRange').textContent = `${(maxh * 0.0980665).toFixed(2)} — ${(minh * 0.0980665).toFixed(2)} bar`;
       } else {
         document.getElementById('curveRange').textContent = '—';
@@ -240,8 +225,6 @@
       }
     }
 
-    /* ---------- Helpers: interpolation ---------- */
-    // expects arrays: dataPoints = [{gpm, head_m, kw}, ...]
     function interpAtFlow(dataPoints, flow) {
       const sorted = dataPoints.slice().sort((a,b) => a.gpm - b.gpm);
       if (flow <= sorted[0].gpm) return { head_m: sorted[0].head_m, kw: sorted[0].kw, note: 'below_range' };
@@ -259,7 +242,6 @@
       return { head_m: sorted[0].head_m, kw: sorted[0].kw, note: 'fallback' };
     }
 
-    // interpolate arrays flow[], head[], kw[] at flow_p
     function interpolateHP(flowArr, headArr, kwArr, flow_p) {
       if (flow_p <= flowArr[0]) return { head_m: headArr[0], kw_p: kwArr[0], note:'below_range' };
       if (flow_p >= flowArr[flowArr.length-1]) return { head_m: headArr[flowArr.length-1], kw_p: kwArr[flowArr.length-1], note:'above_range' };
@@ -275,7 +257,6 @@
       return { head_m: headArr[0], kw_p: kwArr[0], note:'fallback' };
     }
 
-    /* ---------- Efficiency ---------- */
     function computeEfficiency(q_gpm, head_m, power_kw){
       const head_ft = metersToFeet(head_m);
       const hydraulic_hp = (q_gpm * head_ft) / 3960; // hydraulic horsepower
@@ -284,14 +265,6 @@
       return (hydraulic_kw / power_kw) * 100;
     }
 
-    /* ---------- Corrected D solver (binary search) ----------
-       Scales the performance curve by D_ratio to make the curve pass near (flow_p, head_p).
-       Inputs:
-         flowBase[] (base curve gpm), headBase[], kwBase[]
-         flow_p (target flow), head_p (target head at new RPM scaling already accounted for)
-         Dmin, Dmax, initialDref
-       We perform binary search on D between Dmin and Dmax.
-    */
     function correctedDBinary(flowBase, headBase, kwBase, flow_p, head_p, D_min, D_max, D_ref, ratioRPM) {
       const tol = 0.1; // meters
       let lo = D_min, hi = D_max;
@@ -300,8 +273,7 @@
       let iterations = 0;
       while (iterations < 40) {
         const mid = (lo + hi)/2;
-        const D_ratio = mid / D_max; // use baseD as D_max (consistent with your usage)
-        // scale flow & head according to affinity laws for diameter and RPM:
+        const D_ratio = mid / D_max;
         const scaledFlow = flowBase.map(f => f * D_ratio * ratioRPM);
         const scaledHead = headBase.map(h => h * Math.pow(D_ratio,2) * Math.pow(ratioRPM,2));
         const interp = interpolateHP(scaledFlow, scaledHead, kwBase, flow_p);
@@ -314,7 +286,6 @@
         if (Math.abs(err) <= tol) {
           return mid;
         }
-        // if computed head is too low, need larger D (increase D -> head increases)
         if (h_at_mid < head_p) {
           lo = mid;
         } else {
@@ -326,17 +297,26 @@
       return bestD;
     }
 
-    /* ---------- Plot ---------- */
     function plotPumpCurve(flowArr, headArr, targetQ, targetH, H_150) {
       
-      const ctx = document.getElementById('pumpChart').getContext('2d');
-      const datasetCurve = flowArr.map((f, i) => ({ x: f, y: headArr[i] }));
-      const datasetTarget = [{ x: targetQ, y: targetH }];
+    const ctx = document.getElementById('pumpChart').getContext('2d');
+    const datasetCurve = flowArr.map((f, i) => ({ x: f, y: headArr[i] }));
+    const datasetTarget = [{ x: targetQ, y: targetH }];
+    const dataset150Target = [{ x: targetQ * 1.5, y: H_150 }];
 
-      const dataset150Target = [{ x: targetQ * 1.5, y: H_150 }];
+    let xMax = Math.max(...flowArr) * 1.1;
+    let yMax = Math.max(...headArr) * 1.1;
+    const stepX = Math.ceil(xMax / 100) * 10; 
+    xMax = Math.ceil(xMax / stepX) * stepX;      
+    const stepY = Math.ceil(yMax / 100) * 10;
+    yMax = Math.ceil(yMax / stepY) * stepY;
+    console.log('Plotting pump curve with xMax:', xMax, 'yMax:', yMax, 'stepX:', stepX, 'stepY:', stepY);
 
+      if (window.myPumpChart) {
+        window.myPumpChart.destroy();
+      }
       window.myPumpChart = new Chart(ctx, {
-        type: 'scatter', // use scatter to allow linear x-axis
+        type: 'scatter', 
         data: {
           datasets: [
             {
@@ -344,9 +324,9 @@
               data: datasetCurve,
               borderColor: 'blue',
               backgroundColor: 'transparent',
-              showLine: true,       // connect points with a line
-              pointRadius: 0,       // hide points
-              tension: 0.25
+              showLine: true,
+              pointRadius: 0,
+              tension: 0.4
             },
             {
               label: 'Duty Point',
@@ -361,51 +341,49 @@
               backgroundColor: 'red',
               pointRadius: 6,
               showLine: false
-            }          ]
-        },
+            }
+          ]
+      },
         options: {
           scales: {
             x: {
-              type: 'linear',         // important: linear axis
+              type: 'linear',
               title: { display: true, text: 'Flow (GPM)' },
-              min: 0,                 // optional: set min flow
-              max: Math.max(...flowArr), // optional: set max flow
-              ticks: { stepSize: 100 }   // now this works
+              min: 0,
+              max: xMax,
+              ticks: { stepSize: stepX }
             },
             y: {
-              title: { display: true, text: 'Head (m)' }
+              title: { display: true, text: 'Head (m)' },
+              min: 0,
+              max: yMax,
+              ticks: { stepSize: stepY }
             }
           },
           plugins: { legend: { display: true } }
         }
       });
     }
-
-    /* ---------- Main predict flow ---------- */
+   
     function readInputs() {
       const headBar = parseFloat(document.getElementById('inputHead').value);
       const speed = parseFloat(document.getElementById('inputSpeed').value);
-      // user enters head in bar; convert to meters (1 bar = 10.197162129779 m of water) approx
       const head_m = Number.isFinite(headBar) ? headBar * 10.197162129779 : NaN;
       return { h_input: head_m, rrpm: speed };
     }
 
     function startPredict(datapoints, q_input, h_input_m, baseRPM, newRPM, baseD, minD) {
-      // datapoints: [{gpm, head_m, kw}, ...]
-      // ensure numeric
       q_input = parseFloat(q_input);
       if (isNaN(q_input) || isNaN(h_input_m) || isNaN(newRPM) || isNaN(baseRPM)) {
         alert('Please provide numeric Flow, Pressure (bar) and RPM values.');
         return;
       }
 
-      // 1) find base curve interp at q_input
       const interpBase = interpAtFlow(datapoints, q_input);
       const kw_base_from_curve = interpBase.kw;
       const head_from_curve = interpBase.head_m;
 
       const ratioRPM = newRPM / baseRPM;
-      // D_ref (initial guess) from H ratio (H ∝ D^2)
       const H_Ratio = (h_input_m / head_from_curve) || 1;
       const D_ref = baseD * Math.sqrt(H_Ratio);
 
@@ -413,15 +391,12 @@
       const headBase = datapoints.map(d => d.head_m);
       const kwBase = datapoints.map(d => d.kw);
 
-      // find corrected D using binary search
       let D = correctedDBinary(flowBase, headBase, kwBase, q_input, h_input_m, minD, baseD, D_ref, ratioRPM);
       let D_Status = "OK";
       if (D < minD) { D = parseFloat(minD); D_Status = "Below the range"; }
       if (D > baseD) { D = parseFloat(baseD); D_Status = "Above the range"; }
 
       const D_Ratio = D / baseD;
-
-      // scale full curve to new RPM and D
       const scaledFlow = flowBase.map(f => f * D_Ratio * ratioRPM);
       const scaledHead = headBase.map(h => h * Math.pow(D_Ratio,2) * Math.pow(ratioRPM,2));
       const scaledKw = kwBase.map(k => k * Math.pow(D_Ratio,3) * Math.pow(ratioRPM,3));
@@ -437,7 +412,6 @@
       const eff_base = computeEfficiency(q_input, H_curve_new, P_curve_new);
       const eff_new = computeEfficiency(q_input * 1.5, H_150, P_150);
 
-      // update UI
       document.getElementById('results').style.display = 'block';
       document.getElementById('res_q_base').textContent = `${formatNum(q_input,2)} GPM`;
       document.getElementById('res_h_base').textContent = `${formatNum(H_curve_new,2)} m / ${formatNum(H_curve_new * 0.0980665,2)} bar`;
@@ -449,7 +423,6 @@
       document.getElementById('res_p_new').textContent = `${formatNum(P_150,3)} kW / ${formatNum(P_150 / 0.745699872,3)} hp`;
       document.getElementById('res_eff_new').textContent = isNaN(eff_new) ? 'N/A' : `${formatNum(eff_new,2)} %`;
 
-      // status & curve check
       const statusEl = document.getElementById('statusMsg');
       statusEl.innerHTML = '';
       if (interpBase.note === 'below_range' || interpBase.note === 'above_range') {
@@ -460,7 +433,6 @@
         statusEl.innerHTML += `<div class="ok">Calculated impeller diameter: ${D.toFixed(0)} mm.</div>`;
       }
 
-      // curve check table
       const minG = Math.min(...flowBase);
       const maxG = Math.max(...flowBase);
       const minG_new = minG * ratioRPM * D_Ratio;
@@ -491,11 +463,9 @@
         <div style="margin-top:8px;"><strong>Summary:</strong><br> Rated Flow=${formatNum(q_input,2)} GPM, Rated Pressure=${formatNum(H_curve_new,2)} m, Power at 100%=${formatNum(P_curve_new,3)} kW, Power at 150%=${formatNum(P_150,3)} kW → at ${newRPM} RPM.</div>
       `;
 
-      // plot scaled curve and target point
       plotPumpCurve(scaledFlow, scaledHead, q_input, H_curve_new, H_150);
     }
 
-    /* ---------- Orchestration: predict() ---------- */
     function predict() {
       const model = modelSelect.value;
       if (!model || model.trim() === "") {
@@ -506,7 +476,6 @@
         specsContent.innerHTML = '<span class="hint">No specification data available in the database (db-xml missing).</span>';
         return;
       }
-      // find model node
       const pumpModels = Array.from(dbXml.getElementsByTagName('PumpModel'));
       const node = pumpModels.find(n => n.getAttribute('name') === model || (n.textContent && n.textContent.trim() === model));
       if (!node) {
@@ -519,7 +488,6 @@
       const dmax = parseFloatSafeNum(spec?.querySelector('D_max')?.textContent ?? spec?.getAttribute('d_max') ?? 'NaN');
       const baseRpm = parseFloatSafeNum(spec?.querySelector('Base_RPM')?.textContent ?? spec?.getAttribute('base_rpm') ?? 'NaN');
 
-      // collect datapoints normalized
       const dpNodes = Array.from(node.querySelectorAll('PerformanceData > DataPoint'));
       const datapoints = dpNodes.map(dp => {
         const gpm = dp.querySelector('GPM')?.textContent ?? dp.getAttribute('gpm') ?? '';
@@ -558,7 +526,6 @@
       document.getElementById('baseInfo').style.display = 'none';
     }
 
-    /* ---------- Attach events & init ---------- */
     flowSelect.addEventListener('change', onFlowChange);
     modelSelect.addEventListener('change', onModelChange);
     predictBtn.addEventListener('click', predict);
@@ -568,6 +535,3 @@
   </script>
 </body>
 </html>
-
-
-
