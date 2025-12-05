@@ -109,8 +109,6 @@ function parseXMLFromScript() {
   return new DOMParser().parseFromString(xmlText, 'application/xml');
 }
 
-/* --- Read xml, fill dropdown --- */
-const xmlDoc = parseXMLFromScript();
 function getPumpModels() {
   return Array.from(xmlDoc.getElementsByTagName('PumpModel')).map(pm => {
     const name = pm.getAttribute('name');
