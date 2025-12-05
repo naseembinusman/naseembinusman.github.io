@@ -560,7 +560,7 @@
       </DataPoint>
     </PerformanceData>
   </PumpModel>
-  <PumpModel name="150 x 125-315">
+  <PumpModel name="L 150 x 125-315">
     <Specifications>
       <D_min>274.0</D_min>
       <D_max>325.0</D_max>
@@ -624,7 +624,7 @@
       </DataPoint>
     </PerformanceData>
   </PumpModel>
-  <PumpModel name="125-250H-2900">
+  <PumpModel name="L 125-250H-2900">
     <Specifications>
       <D_min>220.0</D_min>
       <D_max>280.0</D_max>
@@ -915,6 +915,8 @@ const pumps = getPumpModels();
 
 function populateDropdown() {
   const sel = document.getElementById('pumpSelect');
+  sel.innerHTML = '<option value="">-- choose pump --</option>';
+  const sorted = [...pumps].sort((a, b) => a.name.localeCompare(b.name));
   pumps.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.name;
