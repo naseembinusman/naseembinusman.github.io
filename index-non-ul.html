@@ -432,16 +432,26 @@ function predict() {
   let H_curve_newRPM = newScaled.head_m;
   let P_curve_newRPM = newScaled.kw_p;
   const interp150 = interpolateHP(p_flow, p_head, p_kw, q_input*1.5);
-  const H_150 = interp150.head_m;
-  const P_150 = interp150.kw_p;
-  // 3) efficiencies
+  
+  let H_150 = 0.00;
+  let P_150 = 0.00;
+
+  if (interp150.note === "below_range" || interp150.note === "above_range"){
+    H_150 = 0.00;
+    P_150 = 0.00;
+  } else{
+    H_150 = interp150.head_m;
+    P_150 = interp150.kw_p;
+  }
+  
   const eff_new = computeEfficiency(q_input*1.5,H_150, P_150);
   const eff_base = computeEfficiency(q_input, H_curve_newRPM, P_curve_newRPM);
+  
   let h_new = H_curve_newRPM;
   let p_new = P_curve_newRPM;
   let Q_equiv = q_input;
   let q_new = q_input;
-  // 4) check scaled curve range
+  
   const gpmList = pump.dataPoints.map(d => d.gpm);
   const minG = Math.min(...gpmList);
   const maxG = Math.max(...gpmList);
@@ -456,9 +466,9 @@ function predict() {
   document.getElementById('res_p_base').textContent = `${P_curve_newRPM.toFixed(3)} kW / ${(P_curve_newRPM / 0.746).toFixed(3)} hp`;
   document.getElementById('res_eff_base').textContent = isNaN(eff_base) ? 'N/A' : eff_base.toFixed(2) + ' %';
 
-  document.getElementById('res_q_new').textContent = `${q_input*1.5.toFixed(2)} GPM`;
-  document.getElementById('res_h_new').textContent = `${H_150.toFixed(2)} m / ${(H_150 * 0.0981).toFixed(2)} bar`;
-  document.getElementById('res_p_new').textContent = `${P_150.toFixed(2)} kW / ${(P_150 / 0.746).toFixed(2)} hp`;
+  document.getElementById('res_q_new').textContent = H_150 === 0 || P_150 === 0 ? "N/A" : `${q_input*1.5.toFixed(2)} GPM`;
+  document.getElementById('res_h_new').textContent = H_150 === 0 ? "N/A" : `${H_150.toFixed(2)} m / ${(H_150 * 0.0981).toFixed(2)} bar`;
+  document.getElementById('res_p_new').textContent = P_150 === 0 ? "N/A" : `${P_150.toFixed(2)} kW / ${(P_150 / 0.746).toFixed(2)} hp`;
   document.getElementById('res_eff_new').textContent = isNaN(eff_new) ? 'N/A' : eff_new.toFixed(2) + ' %';
 
   // Status message
