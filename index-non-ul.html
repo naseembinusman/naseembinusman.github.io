@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Al Aman Pump Calculator by Naseem Usman</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; padding: 18px; max-width:1000px; margin:auto; }
+  label { display:block; margin-top:10px; font-weight:600; }
+  select, input { padding:8px; font-size:15px; margin-top:6px; width:250px; }
+  button { padding:8px 14px; font-size:15px; margin-top:12px; cursor:pointer; }
+  .row { display:flex; gap:20px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+  .card { border:1px solid #ddd; padding:12px; border-radius:6px; margin-top:14px; }
+  table { width:100%; border-collapse:collapse; margin-top:12px }
+  th, td { border:1px solid #ccc; padding:8px; text-align:center; }
+  th { background:#f4f4f4; }
+  .warn { color: #8a2b00; font-weight:700; margin-top:10px; }
+  .ok { color: #067d00; font-weight:700; margin-top:10px; }
+  small { color:#555; }
+</style>
+</head>
+<body>
+
+<h1>Al Aman Pump Performance Calculator by Naseem Usman</h1>
+<p>Pick a pump, enter operating Flow (GPM) and Pressure (bar) at the pump's <strong>base RPM</strong>, then enter a <strong>new speed (RPM)</strong> to predict performance at that speed.</p>
+<br>
+<a href="index.html">Main Page</a>
+<label for="pumpSelect">Select Pump Model</label>
+<select id="pumpSelect" onchange="onPumpChange()">
+  <option value="">-- choose pump --</option>
+</select>
+
+<div id="baseInfo" class="card" style="display:none;">
+  <strong>Pump base RPM:</strong> <span id="baseRpmText"></span><br>
+  <strong>Impeller size:</strong> <span id="impeller_size"></span><br>
+  <strong>Flow range at base RPM (GPM):</strong> <span id="curveRange"></span><br>
+  <strong>Pressure range at base RPM (BAR):</strong> <span id="headRange"></span>
+</div>
+
+<div id="inputSection" class="card" style="display:none;">
+  <h3>Operating conditions (at <span id="baseRpmLabel"></span>)</h3>
+  <div class="row">
+    <div>
+      <label>Rated Flow (GPM)</label>
+      <input id="inputFlow" type="number" step="50" placeholder="in gpm">
+    </div>
+    <div>
+      <label>Rated Pressure (bar) </label>
+      <input id="inputHead" type="number" step="0.1" placeholder="in bar">
+    </div>
+    <div>
+      <label>Rated Speed (RPM)</label>
+      <input id="inputSpeed" type="number" step="50" placeholder="e.g. 3500" value="2900">
+    </div>
+  </div>
+
+  <div style="margin-top:12px;">
+    <button onclick="predict()">Predict at new speed</button>
+    <button onclick="resetResults()" style="margin-left:10px;">Clear results</button>
+  </div>
+  <small>Note: enter Flow & Head measured at the pump's base RPM (shown above). If you have measured at a different RPM, please adjust first.</small>
+</div>
+
+<div id="results" style="display:none;">
+  <div id="statusMsg"></div>
+
+  <div class="card">
+    <h3>Predicted Values</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Quantity</th>
+          <th>100% Flow</th>
+          <th>150% Flow</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Flow (GPM)</td><td id="res_q_base"></td><td id="res_q_new"></td></tr>
+        <tr><td>Head (m)</td><td id="res_h_base"></td><td id="res_h_new"></td></tr>
+        <tr><td>Power (kW)</td><td id="res_p_base"></td><td id="res_p_new"></td></tr>
+        <tr><td>Efficiency (%)</td><td id="res_eff_base"></td><td id="res_eff_new"></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" id="curveCheckCard" style="display:none;">
+    <h3>Curve Check</h3>
+    <div id="curveCheck"></div>
+  </div>
+</div>
+
+<hr style="margin-top:20px;">
+<canvas id="pumpChart"></canvas>
+
+<script>
+const base64Db = "PFB1bXBEYXRhYmFzZT4KICA8UHVtcE1vZGVsIG5hbWU9IkFNIDY1LTI2RVMiPgogICAgPFNwZWNpZmljYXRpb25zPgogICAgICA8RF9taW4+MjE1LjA8L0RfbWluPgogICAgICA8RF9tYXg+MjY0LjA8L0RfbWF4PgogICAgICA8QmFzZV9SUE0+MjkwMC4wPC9CYXNlX1JQTT4KICAgIDwvU3BlY2lmaWNhdGlvbnM+CiAgICA8UGVyZm9ybWFuY2VEYXRhPgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MDwvR1BNPgogICAgICAgIDxNPjEwMC44PC9NPgogICAgICAgIDxLVz4yOS40ODk8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjEwNS4wMTwvR1BNPgogICAgICAgIDxNPjEwMC4xMTwvTT4KICAgICAgICA8S1c+MzcuODg1PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4yMDEuODc8L0dQTT4KICAgICAgICA8TT45OC4xMjwvTT4KICAgICAgICA8S1c+NDMuOTE8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjI0NC4zODwvR1BNPgogICAgICAgIDxNPjk2Ljk0PC9NPgogICAgICAgIDxLVz40NS4xNzI8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjI5MS44NDwvR1BNPgogICAgICAgIDxNPjk1LjE2PC9NPgogICAgICAgIDxLVz40OC4yODwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MzY1LjEyPC9HUE0+CiAgICAgICAgPE0+OTEuNTM8L00+CiAgICAgICAgPEtXPjUyLjk3OTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+Mzg5Ljc3PC9HUE0+CiAgICAgICAgPE0+OTAuMTY8L00+CiAgICAgICAgPEtXPjUzLjg1NzwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+NDE3LjM0PC9HUE0+CiAgICAgICAgPE0+ODguMzc8L00+CiAgICAgICAgPEtXPjU1Ljg4NjwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+NDM4LjAxPC9HUE0+CiAgICAgICAgPE0+ODcuNDE8L00+CiAgICAgICAgPEtXPjU3LjEzOTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+NDg4Ljc4PC9HUE0+CiAgICAgICAgPE0+ODcuMzI8L00+CiAgICAgICAgPEtXPjU5Ljc0NzwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+NTQ3LjYyPC9HUE0+CiAgICAgICAgPE0+ODAuMzQ8L00+CiAgICAgICAgPEtXPjYzLjg0OTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+NjM5LjIzPC9HUE0+CiAgICAgICAgPE0+NzIuODwvTT4KICAgICAgICA8S1c+NjguNTAzPC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT42OTcuNjM8L0dQTT4KICAgICAgICA8TT42OS41ODwvTT4KICAgICAgICA8S1c+NjkuNDcyPC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT43ODMuMTQ8L0dQTT4KICAgICAgICA8TT41Ni4zNjwvTT4KICAgICAgICA8S1c+NzMuODI0PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT44NTkuNTk8L0dQTT4KICAgICAgICA8TT4yMi40MzwvTT4KICAgICAgICA8S1c+ODAuMTI5PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT44NjUuMzM8L0dQTT4KICAgICAgICA8TT4xNC4yMTwvTT4KICAgICAgICA8S1c+NzkuOTYzPC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT44NjYuOTk8L0dQTT4KICAgICAgICA8TT4xNy42NTwvTT4KICAgICAgICA8S1c+NzkuMjQ2PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICA8L1BlcmZvcm1hbmNlRGF0YT4KICA8L1B1bXBNb2RlbD4KICA8UHVtcE1vZGVsIG5hbWU9IkFNIDQwLTI2Ij4KICAgIDxTcGVjaWZpY2F0aW9ucz4KICAgICAgPERfbWluPjIwNTwvRF9taW4+CiAgICAgIDxEX21heD4yNjQuMDwvRF9tYXg+CiAgICAgIDxCYXNlX1JQTT4yOTAwLjA8L0Jhc2VfUlBNPgogICAgPC9TcGVjaWZpY2F0aW9ucz4KICAgIDxQZXJmb3JtYW5jZURhdGE+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4wPC9HUE0+CiAgICAgICAgPE0+OTUuNzE0PC9NPgogICAgICAgIDxLVz44LjU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjQwPC9HUE0+CiAgICAgICAgPE0+OTUuMzU3PC9NPgogICAgICAgIDxLVz4xMC41PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT44MDwvR1BNPgogICAgICAgIDxNPjk0LjI4NTwvTT4KICAgICAgICA8S1c+MTIuNjY2PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4xMjA8L0dQTT4KICAgICAgICA8TT45MS4wNzE8L00+CiAgICAgICAgPEtXPjE0LjY2NjwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTYwPC9HUE0+CiAgICAgICAgPE0+ODYuNDI4PC9NPgogICAgICAgIDxLVz4xNi41PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4yMDA8L0dQTT4KICAgICAgICA8TT43OS4yODU8L00+CiAgICAgICAgPEtXPjE4LjU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjI0MDwvR1BNPgogICAgICAgIDxNPjY3Ljg1NzE0PC9NPgogICAgICAgIDxLVz4yMC41PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4yNjY8L0dQTT4KICAgICAgICA8TT41OC4yMTQ8L00+CiAgICAgICAgPEtXPjIxLjY2NjwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgPC9QZXJmb3JtYW5jZURhdGE+CiAgPC9QdW1wTW9kZWw+CiAgPFB1bXBNb2RlbCBuYW1lPSJBTSA1MC0zMkgiPgogICAgPFNwZWNpZmljYXRpb25zPgogICAgICA8RF9taW4+MjU1LjA8L0RfbWluPgogICAgICA8RF9tYXg+MzI5LjA8L0RfbWF4PgogICAgICA8QmFzZV9SUE0+MjkwMC4wPC9CYXNlX1JQTT4KICAgIDwvU3BlY2lmaWNhdGlvbnM+CiAgICA8UGVyZm9ybWFuY2VEYXRhPgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MDwvR1BNPgogICAgICAgIDxNPjE2MjwvTT4KICAgICAgICA8S1c+MjU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjc5LjI1MTg2MjQxODc2NjgzPC9HUE0+CiAgICAgICAgPE0+MTYwPC9NPgogICAgICAgIDxLVz4zMDwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTU4LjUwMzcyNDgzNzUzMzY3PC9HUE0+CiAgICAgICAgPE0+MTU3LjU8L00+CiAgICAgICAgPEtXPjM2PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4yMzcuNzU1NTg3MjU2MzAwNTI8L0dQTT4KICAgICAgICA8TT4xNTIuNTwvTT4KICAgICAgICA8S1c+NDIuNTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MzE3LjAwNzQ0OTY3NTA2NzMzPC9HUE0+CiAgICAgICAgPE0+MTQ1PC9NPgogICAgICAgIDxLVz40OC41PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4zOTYuMjU5MzEyMDkzODM0MjwvR1BNPgogICAgICAgIDxNPjEzNjwvTT4KICAgICAgICA8S1c+NTU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjQ3NS41MTExNzQ1MTI2MDEwMzwvR1BNPgogICAgICAgIDxNPjEyMzwvTT4KICAgICAgICA8S1c+NjI8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjUwNy4yMTE5MTk0ODAxMDc4PC9HUE0+CiAgICAgICAgPE0+MTE4PC9NPgogICAgICAgIDxLVz42NTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgPC9QZXJmb3JtYW5jZURhdGE+CiAgPC9QdW1wTW9kZWw+CiAgPFB1bXBNb2RlbCBuYW1lPSJBTSA2NS0yNiI+CiAgICA8U3BlY2lmaWNhdGlvbnM+CiAgICAgIDxEX21pbj4yMTUuMDwvRF9taW4+CiAgICAgIDxEX21heD4yNjQuMDwvRF9tYXg+CiAgICAgIDxCYXNlX1JQTT4yOTAwLjA8L0Jhc2VfUlBNPgogICAgPC9TcGVjaWZpY2F0aW9ucz4KICAgIDxQZXJmb3JtYW5jZURhdGE+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4wPC9HUE0+CiAgICAgICAgPE0+MTAwPC9NPgogICAgICAgIDxLVz4xNi40PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4xNTguNTAzNzI0ODM3NTMzNjc8L0dQTT4KICAgICAgICA8TT4xMDA8L00+CiAgICAgICAgPEtXPjIzLjg8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjMxNy4wMDc0NDk2NzUwNjczMzwvR1BNPgogICAgICAgIDxNPjk4LjMzMzMzMzMzMzMzMzMzPC9NPgogICAgICAgIDxLVz4zMC41PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT40NzUuNTExMTc0NTEyNjAxMDM8L0dQTT4KICAgICAgICA8TT45Mi41PC9NPgogICAgICAgIDxLVz4zNy44PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT42MzQuMDE0ODk5MzUwMTM0NzwvR1BNPgogICAgICAgIDxNPjgyLjU8L00+CiAgICAgICAgPEtXPjQ1PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT43MjYuNjc2MTc2ODkwMTU2OTwvR1BNPgogICAgICAgIDxNPjc0LjE2NjY2NjY2NjY2NjY3PC9NPgogICAgICAgIDxLVz40OC44PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICA8L1BlcmZvcm1hbmNlRGF0YT4KICA8L1B1bXBNb2RlbD4KICA8UHVtcE1vZGVsIG5hbWU9IkFNIDY1LTMyIj4KICAgIDxTcGVjaWZpY2F0aW9ucz4KICAgICAgPERfbWluPjI1NS4wPC9EX21pbj4KICAgICAgPERfbWF4PjMyOS4wPC9EX21heD4KICAgICAgPEJhc2VfUlBNPjI5MDA8L0Jhc2VfUlBNPgogICAgPC9TcGVjaWZpY2F0aW9ucz4KICAgIDxQZXJmb3JtYW5jZURhdGE+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4wPC9HUE0+CiAgICAgICAgPE0+MTQ3PC9NPgogICAgICAgIDxLVz4zMDwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTU4LjUwMzcyNDgzNzUzMzY3PC9HUE0+CiAgICAgICAgPE0+MTQ2PC9NPgogICAgICAgIDxLVz40MjwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MzE3LjAwNzQ0OTY3NTA2NzMzPC9HUE0+CiAgICAgICAgPE0+MTQ0LjU8L00+CiAgICAgICAgPEtXPjU0PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT40NzUuNTExMTc0NTEyNjAxMDM8L0dQTT4KICAgICAgICA8TT4xMzk8L00+CiAgICAgICAgPEtXPjY2PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT42MzQuMDE0ODk5MzUwMTM0NzwvR1BNPgogICAgICAgIDxNPjEyODwvTT4KICAgICAgICA8S1c+Nzg8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjcyOS4xMTcxMzQyNTI2NTQ5PC9HUE0+CiAgICAgICAgPE0+MTE5PC9NPgogICAgICAgIDxLVz44NTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgPC9QZXJmb3JtYW5jZURhdGE+CiAgPC9QdW1wTW9kZWw+CiAgPFB1bXBNb2RlbCBuYW1lPSJBTSA4MC0yNiI+CiAgICA8U3BlY2lmaWNhdGlvbnM+CiAgICAgIDxEX21pbj4yMTUuMDwvRF9taW4+CiAgICAgIDxEX21heD4yNjQuMDwvRF9tYXg+CiAgICAgIDxCYXNlX1JQTT4yOTAwLjA8L0Jhc2VfUlBNPgogICAgPC9TcGVjaWZpY2F0aW9ucz4KICAgIDxQZXJmb3JtYW5jZURhdGE+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4wPC9HUE0+CiAgICAgICAgPE0+MTAwLjQxNjY2NjY2NjY2NjY3PC9NPgogICAgICAgIDxLVz4yOC40MjEwNTI2MzE1Nzg5NTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTAwPC9HUE0+CiAgICAgICAgPE0+MTAwPC9NPgogICAgICAgIDxLVz4zMS41Nzg5NDczNjg0MjEwNTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MjAwPC9HUE0+CiAgICAgICAgPE0+OTkuNTgzMzMzMzMzMzMzMzM8L00+CiAgICAgICAgPEtXPjM0LjczNjg0MjEwNTI2MzE2PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4zMDA8L0dQTT4KICAgICAgICA8TT45OC43NTwvTT4KICAgICAgICA8S1c+MzguNDIxMDUyNjMxNTc4OTQ1PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT40MDA8L0dQTT4KICAgICAgICA8TT45Ny41PC9NPgogICAgICAgIDxLVz40MS41Nzg5NDczNjg0MjEwNTU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjUwMDwvR1BNPgogICAgICAgIDxNPjk1LjQxNjY2NjY2NjY2NjY3PC9NPgogICAgICAgIDxLVz40NS41MjYzMTU3ODk0NzM2ODU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjYwMDwvR1BNPgogICAgICAgIDxNPjkyLjU8L00+CiAgICAgICAgPEtXPjQ5LjEwNTI2MzE1Nzg5NDc0PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT43MDA8L0dQTT4KICAgICAgICA8TT44OS4xNjY2NjY2NjY2NjY2NzwvTT4KICAgICAgICA8S1c+NTIuODk0NzM2ODQyMTA1MjY8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjgwMDwvR1BNPgogICAgICAgIDxNPjg1LjQxNjY2NjY2NjY2NjY3PC9NPgogICAgICAgIDxLVz41Ni41Nzg5NDczNjg0MjEwNTU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjkwMDwvR1BNPgogICAgICAgIDxNPjgwLjQxNjY2NjY2NjY2NjY3PC9NPgogICAgICAgIDxLVz42MC4yNjMxNTc4OTQ3MzY4NDwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTAwMDwvR1BNPgogICAgICAgIDxNPjc0LjE2NjY2NjY2NjY2NjY3PC9NPgogICAgICAgIDxLVz42My40MjEwNTI2MzE1Nzg5NDU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjEwMjMuMzMzMzM8L0dQTT4KICAgICAgICA8TT43Mi41PC9NPgogICAgICAgIDxLVz42NC40NzM2ODQyMTA1MjYzMjwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgPC9QZXJmb3JtYW5jZURhdGE+CiAgPC9QdW1wTW9kZWw+CiAgPFB1bXBNb2RlbCBuYW1lPSJBTSAxMDAtMjYiPgogICAgPFNwZWNpZmljYXRpb25zPgogICAgICA8RF9taW4+MjE1LjA8L0RfbWluPgogICAgICA8RF9tYXg+MjY0LjA8L0RfbWF4PgogICAgICA8QmFzZV9SUE0+MjkwMC4wPC9CYXNlX1JQTT4KICAgIDwvU3BlY2lmaWNhdGlvbnM+CiAgICA8UGVyZm9ybWFuY2VEYXRhPgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MDwvR1BNPgogICAgICAgIDxNPjk2Ljg0MjEwNTI2MzE1Nzg5PC9NPgogICAgICAgIDxLVz41MS4yNzExODY0NDA2Nzc5NjU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjMxNy4wMDc0NDk2NzUwNjczMzwvR1BNPgogICAgICAgIDxNPjk3LjEwNTI2MzE1Nzg5NDc0PC9NPgogICAgICAgIDxLVz42MC4wNDIzNzI4ODEzNTU5MzwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+NjM0LjAxNDg5OTM1MDEzNDc8L0dQTT4KICAgICAgICA8TT45NS43ODk0NzM2ODQyMTA1MjwvTT4KICAgICAgICA8S1c+NjkuMTUyNTQyMzcyODgxMzY8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjk1MS4wMjIzNDkwMjUyMDIxPC9HUE0+CiAgICAgICAgPE0+OTEuODQyMTA1MjYzMTU3ODk8L00+CiAgICAgICAgPEtXPjc4LjcyODgxMzU1OTMyMjAzPC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4xMjY4LjAyOTc5ODcwMDI2OTM8L0dQTT4KICAgICAgICA8TT44Ny4zNjg0MjEwNTI2MzE1ODwvTT4KICAgICAgICA8S1c+ODguNzI4ODEzNTU5MzIyMDM8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjE1ODUuMDM3MjQ4Mzc1MzM2NzwvR1BNPgogICAgICAgIDxNPjcyLjYzMTU3ODk0NzM2ODQyPC9NPgogICAgICAgIDxLVz45OC41MTY5NDkxNTI1NDIzNzwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTc0My41NDA5NzMyMTI4NzA1PC9HUE0+CiAgICAgICAgPE0+NjguNjg0MjEwNTI2MzE1ODwvTT4KICAgICAgICA8S1c+MTAwLjYzNTU5MzIyMDMzODk5PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICA8L1BlcmZvcm1hbmNlRGF0YT4KICA8L1B1bXBNb2RlbD4KICA8UHVtcE1vZGVsIG5hbWU9IkFNIDEwMC0zMiI+CiAgICA8U3BlY2lmaWNhdGlvbnM+CiAgICAgIDxEX21pbj4yNTUuMDwvRF9taW4+CiAgICAgIDxEX21heD4zMjkuMDwvRF9tYXg+CiAgICAgIDxCYXNlX1JQTT4yOTAwLjA8L0Jhc2VfUlBNPgogICAgPC9TcGVjaWZpY2F0aW9ucz4KICAgIDxQZXJmb3JtYW5jZURhdGE+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4wPC9HUE0+CiAgICAgICAgPE0+MTQ4LjUxODUxODUxODUxODU8L00+CiAgICAgICAgPEtXPjU1LjU1NTU1NTU1NTU1NTU2PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4zMTcuMDA3NDQ5Njc1MDY3MzM8L0dQTT4KICAgICAgICA8TT4xNTEuMTExMTExMTExMTExMTE8L00+CiAgICAgICAgPEtXPjc1PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT42MzQuMDE0ODk5MzUwMTM0NzwvR1BNPgogICAgICAgIDxNPjE1MS40ODE0ODE0ODE0ODE1PC9NPgogICAgICAgIDxLVz45Ni42NjY2NjY2NjY2NjY2NzwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+OTUxLjAyMjM0OTAyNTIwMjE8L0dQTT4KICAgICAgICA8TT4xNDUuOTI1OTI1OTI1OTI1OTI8L00+CiAgICAgICAgPEtXPjEyNTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTI2OC4wMjk3OTg3MDAyNjkzPC9HUE0+CiAgICAgICAgPE0+MTMwPC9NPgogICAgICAgIDxLVz4xNTA8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjE1NDUuNDExMzE3MTY1OTUzMzwvR1BNPgogICAgICAgIDxNPjExMC43NDA3NDA3NDA3NDA3NTwvTT4KICAgICAgICA8S1c+MTcwLjM3MDM3MDM3MDM3MDM4PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICA8L1BlcmZvcm1hbmNlRGF0YT4KICA8L1B1bXBNb2RlbD4KICA8UHVtcE1vZGVsIG5hbWU9IkFNIDEyNS0yNkgiPgogICAgPFNwZWNpZmljYXRpb25zPgogICAgICA8RF9taW4+MjI1LjA8L0RfbWluPgogICAgICA8RF9tYXg+MjY0LjA8L0RfbWF4PgogICAgICA8QmFzZV9SUE0+MjkwMC4wPC9CYXNlX1JQTT4KICAgIDwvU3BlY2lmaWNhdGlvbnM+CiAgICA8UGVyZm9ybWFuY2VEYXRhPgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MDwvR1BNPgogICAgICAgIDxNPjk0LjQzNDc4MjYwODY5NTY2PC9NPgogICAgICAgIDxLVz41OC42OTU2NTIxNzM5MTMwNTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+Njk3LjQxNjM4OTI4NTE0ODI8L0dQTT4KICAgICAgICA8TT45My45MTMwNDM0NzgyNjA4NzwvTT4KICAgICAgICA8S1c+ODAuMjE3MzkxMzA0MzQ3ODM8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjEzOTQuODMyNzc4NTcwMjk2MzwvR1BNPgogICAgICAgIDxNPjkxLjgyNjA4Njk1NjUyMTczPC9NPgogICAgICAgIDxLVz4xMDIuNzE3MzkxMzA0MzQ3ODM8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjIwOTIuMjQ5MTY3ODU1NDQ0NzwvR1BNPgogICAgICAgIDxNPjg2LjM0NzgyNjA4Njk1NjUyPC9NPgogICAgICAgIDxLVz4xMjQuMjM5MTMwNDM0NzgyNjE8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjI3ODkuNjY1NTU3MTQwNTkyNzwvR1BNPgogICAgICAgIDxNPjc0LjA4Njk1NjUyMTczOTEzPC9NPgogICAgICAgIDxLVz4xNDUuNzYwODY5NTY1MjE3Mzg8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjM0ODcuMDgxOTQ2NDI1NzQxPC9HUE0+CiAgICAgICAgPE0+NTYuNjA4Njk1NjUyMTczOTE0PC9NPgogICAgICAgIDxLVz4xNjcuMjgyNjA4Njk1NjUyMjwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+NDAxMC4xNDQyMzgzODk2MDI8L0dQTT4KICAgICAgICA8TT40My41NjUyMTczOTEzMDQzNTwvTT4KICAgICAgICA8S1c+MTgxLjk1NjUyMTczOTEzMDQ0PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICA8L1BlcmZvcm1hbmNlRGF0YT4KICA8L1B1bXBNb2RlbD4KICA8UHVtcE1vZGVsIG5hbWU9IkwgMTUwIHggMTI1LTMxNSI+CiAgICA8U3BlY2lmaWNhdGlvbnM+CiAgICAgIDxEX21pbj4yNzQuMDwvRF9taW4+CiAgICAgIDxEX21heD4zMjUuMDwvRF9tYXg+CiAgICAgIDxCYXNlX1JQTT4yOTAwLjA8L0Jhc2VfUlBNPgogICAgPC9TcGVjaWZpY2F0aW9ucz4KICAgIDxQZXJmb3JtYW5jZURhdGE+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4wPC9HUE0+CiAgICAgICAgPE0+MTQ1LjI8L00+CiAgICAgICAgPEtXPjQ1PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4zMTcuMDA3NDQ5Njc1MDY3MzM8L0dQTT4KICAgICAgICA8TT4xNDYuNDwvTT4KICAgICAgICA8S1c+NjMuODI4Njc4NDEyODg1ODU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjYzNC4wMTQ4OTkzNTAxMzQ3PC9HUE0+CiAgICAgICAgPE0+MTQ3LjI8L00+CiAgICAgICAgPEtXPjEwMy4xNDIzNjA5MDEzODQ2PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT45NTEuMDIyMzQ5MDI1MjAyMTwvR1BNPgogICAgICAgIDxNPjE0Ni40PC9NPgogICAgICAgIDxLVz4xMzIuNTY3MjU1MTY1MjI0NDg8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjEyNjguMDI5Nzk4NzAwMjY5MzwvR1BNPgogICAgICAgIDxNPjE0NDwvTT4KICAgICAgICA8S1c+MTUwLjY3NzUzNTkyNTUwMTAyPC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4xNTg1LjAzNzI0ODM3NTMzNjc8L0dQTT4KICAgICAgICA8TT4xNDA8L00+CiAgICAgICAgPEtXPjE3MS42NzAzNjk3MDY3ODgyODwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTkwMi4wNDQ2OTgwNTA0MDQxPC9HUE0+CiAgICAgICAgPE0+MTMzLjY8L00+CiAgICAgICAgPEtXPjE4Ny4yMjU4MDcyODgzODI5NTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MjIxOS4wNTIxNDc3MjU0NzE1PC9HUE0+CiAgICAgICAgPE0+MTI0LjQ8L00+CiAgICAgICAgPEtXPjIwMy4zODg1MTQyMDQ5OTQ4NjwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MjUzNi4wNTk1OTc0MDA1Mzg3PC9HUE0+CiAgICAgICAgPE0+MTEyLjQ8L00+CiAgICAgICAgPEtXPjIxMi41NTIxNDY1NjE1NzUyMzwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+Mjg1My4wNjcwNDcwNzU2MDYzPC9HUE0+CiAgICAgICAgPE0+OTc8L00+CiAgICAgICAgPEtXPjIyOC4zNzA2NDAzODcwODc1PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4zMTcwLjA3NDQ5Njc1MDY3MzU8L0dQTT4KICAgICAgICA8TT43ODwvTT4KICAgICAgICA8S1c+MjU1LjA1MzEyMDcwNzIyODM8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgIDwvUGVyZm9ybWFuY2VEYXRhPgogIDwvUHVtcE1vZGVsPgogIDxQdW1wTW9kZWwgbmFtZT0iTCAxMjUtMjUwSC0yOTAwIj4KICAgIDxTcGVjaWZpY2F0aW9ucz4KICAgICAgPERfbWluPjIyMC4wPC9EX21pbj4KICAgICAgPERfbWF4PjI4MC4wPC9EX21heD4KICAgICAgPEJhc2VfUlBNPjI5MDA8L0Jhc2VfUlBNPgogICAgPC9TcGVjaWZpY2F0aW9ucz4KICAgIDxQZXJmb3JtYW5jZURhdGE+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4wPC9HUE0+CiAgICAgICAgPE0+OTguNTwvTT4KICAgICAgICA8S1c+MzU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjQ0MC41PC9HUE0+CiAgICAgICAgPE0+OTguMzwvTT4KICAgICAgICA8S1c+NDU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjg4MTwvR1BNPgogICAgICAgIDxNPjk3PC9NPgogICAgICAgIDxLVz44MDwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTMyMS41PC9HUE0+CiAgICAgICAgPE0+OTQuMzwvTT4KICAgICAgICA8S1c+MTEwPC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4xNzYyPC9HUE0+CiAgICAgICAgPE0+OTA8L00+CiAgICAgICAgPEtXPjEzMDwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MjIwMi41PC9HUE0+CiAgICAgICAgPE0+ODMuNTwvTT4KICAgICAgICA8S1c+MTQ4PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4yNjQzPC9HUE0+CiAgICAgICAgPE0+NzQuNTwvTT4KICAgICAgICA8S1c+MTU5PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4yOTA3LjM8L0dQTT4KICAgICAgICA8TT42Ny41PC9NPgogICAgICAgIDxLVz4xNjE8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgIDwvUGVyZm9ybWFuY2VEYXRhPgogIDwvUHVtcE1vZGVsPgogIDxQdW1wTW9kZWwgbmFtZT0iTEJTIDEwMC0zMTUiPgogICAgPFNwZWNpZmljYXRpb25zPgogICAgICA8RF9taW4+MjY0LjA8L0RfbWluPgogICAgICA8RF9tYXg+MzI5LjA8L0RfbWF4PgogICAgICA8QmFzZV9SUE0+MjkwMC4wPC9CYXNlX1JQTT4KICAgIDwvU3BlY2lmaWNhdGlvbnM+CiAgICA8UGVyZm9ybWFuY2VEYXRhPgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MDwvR1BNPgogICAgICAgIDxNPjE1My42MTExMTExMTExMTExMTwvTT4KICAgICAgICA8S1c+NTcuNTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MjY0PC9HUE0+CiAgICAgICAgPE0+MTUzLjMzMzMzMzMzMzMzMzM0PC9NPgogICAgICAgIDxLVz43Mi41PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT41Mjg8L0dQTT4KICAgICAgICA8TT4xNTEuNjY2NjY2NjY2NjY2NjY8L00+CiAgICAgICAgPEtXPjkwPC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT43OTI8L0dQTT4KICAgICAgICA8TT4xNDcuNTU1NTU1NTU1NTU1NTQ8L00+CiAgICAgICAgPEtXPjExMDwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTA1NjwvR1BNPgogICAgICAgIDxNPjEzOC44ODg4ODg4ODg4ODg4OTwvTT4KICAgICAgICA8S1c+MTI3LjU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjEzMjA8L0dQTT4KICAgICAgICA8TT4xMjYuMTExMTExMTExMTExMTE8L00+CiAgICAgICAgPEtXPjE0MDwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTU4NDwvR1BNPgogICAgICAgIDxNPjEwNTwvTT4KICAgICAgICA8S1c+MTU3LjU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjE3NTIuOTY8L0dQTT4KICAgICAgICA8TT44Ni4xMTExMTExMTExMTExMTwvTT4KICAgICAgICA8S1c+MTYyLjU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgIDwvUGVyZm9ybWFuY2VEYXRhPgogIDwvUHVtcE1vZGVsPgogIDxQdW1wTW9kZWwgbmFtZT0iTEJTIDEwMC00MDAiPgogICAgPFNwZWNpZmljYXRpb25zPgogICAgICA8RF9taW4+MzM0PC9EX21pbj4KICAgICAgPERfbWF4PjQxNC4wPC9EX21heD4KICAgICAgPEJhc2VfUlBNPjI5MTUuMDwvQmFzZV9SUE0+CiAgICA8L1NwZWNpZmljYXRpb25zPgogICAgPFBlcmZvcm1hbmNlRGF0YT4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjA8L0dQTT4KICAgICAgICA8TT4yNTEuODwvTT4KICAgICAgICA8S1c+MTQwLjg8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjIwMDwvR1BNPgogICAgICAgIDxNPjI1MC45PC9NPgogICAgICAgIDxLVz4xNTguMzA5MDM3OTAwODc0NjQ8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjQwMDwvR1BNPgogICAgICAgIDxNPjI1MDwvTT4KICAgICAgICA8S1c+MTc1LjgwMTc0OTI3MTEzNzAzPC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT42MDA8L0dQTT4KICAgICAgICA8TT4yNDkuMTwvTT4KICAgICAgICA8S1c+MTk0LjE2OTA5NjIwOTkxMjU0PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT44MDA8L0dQTT4KICAgICAgICA8TT4yNDYuNDwvTT4KICAgICAgICA8S1c+MjEzLjExOTUzMzUyNzY5Njg8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjEwMDA8L0dQTT4KICAgICAgICA8TT4yNDIuNDwvTT4KICAgICAgICA8S1c+MjM1PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4xMjAwPC9HUE0+CiAgICAgICAgPE0+MjM2LjU1MzAyOTQxMTc2NDc8L00+CiAgICAgICAgPEtXPjI1My4zNTI3Njk2NzkzMDAyODwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTQwMDwvR1BNPgogICAgICAgIDxNPjIyOC41PC9NPgogICAgICAgIDxLVz4yNzkuNTkxODM2NzM0NjkzODY8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjE2MDA8L0dQTT4KICAgICAgICA8TT4yMTcuNjY0NzY5MzgyOTgyNTc8L00+CiAgICAgICAgPEtXPjI5Mi43MTEzNzAyNjIzOTA3PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4xODAwPC9HUE0+CiAgICAgICAgPE0+MjAzLjI3MzY5MTg1MTA1MjM1PC9NPgogICAgICAgIDxLVz4zMTEuNjYxODA3NTgwMTc0OTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MjAwMDwvR1BNPgogICAgICAgIDxNPjE4My40ODYyMzg1MzIxMTAxPC9NPgogICAgICAgIDxLVz4zMzAuOTAzNzkwMDg3NDYzNTY8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjIxODE8L0dQTT4KICAgICAgICA8TT4xNjEuODk5NjIyMjM0MjE0Nzc8L00+CiAgICAgICAgPEtXPjM0OS41NjI2ODIyMTU3NDM0NTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgPC9QZXJmb3JtYW5jZURhdGE+CiAgPC9QdW1wTW9kZWw+CiAgPFB1bXBNb2RlbCBuYW1lPSJMQlMgMTI1LTI1MCI+CiAgICA8U3BlY2lmaWNhdGlvbnM+CiAgICAgIDxEX21pbj4yMTQ8L0RfbWluPgogICAgICA8RF9tYXg+MjY0LjA8L0RfbWF4PgogICAgICA8QmFzZV9SUE0+MjkwMC4wPC9CYXNlX1JQTT4KICAgIDwvU3BlY2lmaWNhdGlvbnM+CiAgICA8UGVyZm9ybWFuY2VEYXRhPgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MDwvR1BNPgogICAgICAgIDxNPjk3LjA3MTYzMzc2ODg4MTQ3PC9NPgogICAgICAgIDxLVz42NS43OTg4MTY1NjgwNDczMzwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MjAwPC9HUE0+CiAgICAgICAgPE0+OTcuMzAzMzA4MzEyNDgyNjE8L00+CiAgICAgICAgPEtXPjcwLjUzMjU0NDM3ODY5ODIyPC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT40MDA8L0dQTT4KICAgICAgICA8TT45Ny4wNzE2MzM3Njg4ODE0NzwvTT4KICAgICAgICA8S1c+NzUuMjY2MjcyMTg5MzQ5MTE8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjYwMDwvR1BNPgogICAgICAgIDxNPjk2LjgzOTk1OTIyNTI4MDMyPC9NPgogICAgICAgIDxLVz44MDwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+ODAwPC9HUE0+CiAgICAgICAgPE0+OTYuMzc2NjEwMTM4MDc4MDI8L00+CiAgICAgICAgPEtXPjg0LjczMzcyNzgxMDY1MDg5PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4xMDAwPC9HUE0+CiAgICAgICAgPE0+OTUuNDQ5OTExOTYzNjczNDI8L00+CiAgICAgICAgPEtXPjkwLjY1MDg4NzU3Mzk2NDU8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjEyMDA8L0dQTT4KICAgICAgICA8TT45NC41MjMyMTM3ODkyNjg4NDwvTT4KICAgICAgICA8S1c+OTYuNTY4MDQ3MzM3Mjc4MTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTQwMDwvR1BNPgogICAgICAgIDxNPjkyLjY2OTgxNzQ0MDQ1OTY0PC9NPgogICAgICAgIDxLVz4xMDMuNDMxOTUyNjYyNzIxOTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MTYwMDwvR1BNPgogICAgICAgIDxNPjg5LjQyNjM3MzgzMDA0MzU2PC9NPgogICAgICAgIDxLVz4xMDguMTY1NjgwNDczMzcyNzk8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjE4MDA8L0dQTT4KICAgICAgICA8TT44Ni4xODI5MzAyMTk2Mjc0NzwvTT4KICAgICAgICA8S1c+MTE0LjY3NDU1NjIxMzAxNzc1PC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4yMDAwPC9HUE0+CiAgICAgICAgPE0+ODIuMDEyNzg4NDM0ODA2Nzg8L00+CiAgICAgICAgPEtXPjEyMDwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MjIwMDwvR1BNPgogICAgICAgIDxNPjc2LjkxNTk0ODQ3NTU4MTU8L00+CiAgICAgICAgPEtXPjEyNC43MzM3Mjc4MTA2NTA4OTwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgICA8RGF0YVBvaW50PgogICAgICAgIDxHUE0+MjQwMDwvR1BNPgogICAgICAgIDxNPjcwLjg5MjQxMDM0MTk1MTYzPC9NPgogICAgICAgIDxLVz4xMjkuNDY3NDU1NjIxMzAxNzg8L0tXPgogICAgICA8L0RhdGFQb2ludD4KICAgICAgPERhdGFQb2ludD4KICAgICAgICA8R1BNPjI2MDA8L0dQTT4KICAgICAgICA8TT42My45NDIxNzQwMzM5MTcxNTwvTT4KICAgICAgICA8S1c+MTMzLjAxNzc1MTQ3OTI4OTkzPC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4yODAwPC9HUE0+CiAgICAgICAgPE0+NTYuMDY1MjM5NTUxNDc4MDg8L00+CiAgICAgICAgPEtXPjEzNi41NjgwNDczMzcyNzgxPC9LVz4KICAgICAgPC9EYXRhUG9pbnQ+CiAgICAgIDxEYXRhUG9pbnQ+CiAgICAgICAgPEdQTT4yOTY3PC9HUE0+CiAgICAgICAgPE0+NDguNjUxNjU0MTU2MjQxMzE8L00+CiAgICAgICAgPEtXPjEzNy43NTE0NzkyODk5NDA4MjwvS1c+CiAgICAgIDwvRGF0YVBvaW50PgogICAgPC9QZXJmb3JtYW5jZURhdGE+CiAgPC9QdW1wTW9kZWw+CjwvUHVtcERhdGFiYXNlPg==";
+
+/* --- Helper: Parse XML from script block --- */
+function parseXMLFromBase64(b64) {
+  const xmlText = atob(b64); // decode Base64 → XML text
+  return new DOMParser().parseFromString(xmlText, "application/xml");
+}
+
+/* --- Read xml, fill dropdown --- */
+const xmlDoc = parseXMLFromBase64(base64Db);
+/* --- Helper: Parse XML from script block --- */
+function parseXMLFromScript() {
+  const xmlText = document.getElementById('pumpXML').textContent.trim();
+  return new DOMParser().parseFromString(xmlText, 'application/xml');
+}
+
+
+function getPumpModels() {
+  return Array.from(xmlDoc.getElementsByTagName('PumpModel')).map(pm => {
+    const name = pm.getAttribute('name');
+    const baseRpmNode = pm.querySelector('Specifications > Base_RPM');
+    const baseRpm = baseRpmNode ? parseFloat(baseRpmNode.textContent) : null;
+    const baseDNode = pm.querySelector('Specifications > D_max');
+    const baseD = baseDNode ? parseFloat(baseDNode.textContent) : null;
+    const MinDNode = pm.querySelector('Specifications > D_min');
+    const MinD = MinDNode ? parseFloat(MinDNode.textContent) : null;  
+    const dataPoints = Array.from(pm.querySelectorAll('PerformanceData > DataPoint')).map(dp => ({
+      gpm: parseFloat(dp.getElementsByTagName('GPM')[0].textContent),
+      head_m: parseFloat(dp.getElementsByTagName('M')[0].textContent),
+      kw: parseFloat(dp.getElementsByTagName('KW')[0].textContent)
+    }));
+    return { name, baseRpm, baseD, MinD, dataPoints, xmlNode: pm };
+  });
+}
+
+const pumps = getPumpModels();
+
+function populateDropdown() {
+  const sel = document.getElementById('pumpSelect');
+  sel.innerHTML = '<option value="">-- choose pump --</option>';
+  const sorted = [...pumps].sort((a, b) => a.name.localeCompare(b.name));
+  pumps.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+}
+populateDropdown();
+
+/* --- When pump changes --- */
+function onPumpChange() {
+  const sel = document.getElementById('pumpSelect');
+  const name = sel.value;
+  if (!name) {
+    document.getElementById('inputSection').style.display = 'none';
+    document.getElementById('baseInfo').style.display = 'none';
+    return;
+  }
+
+  const pump = pumps.find(p => p.name === name);
+  document.getElementById('inputSection').style.display = 'block';
+  document.getElementById('baseInfo').style.display = 'block';
+  document.getElementById('baseRpmText').textContent = pump.baseRpm ? pump.baseRpm.toFixed(0) + ' RPM' : '—';
+  document.getElementById('baseRpmLabel').textContent = pump.baseRpm ? pump.baseRpm.toFixed(0) + ' RPM' : 'base RPM';
+  const impSize = pump.MinD + " mm - " + pump.baseD + " mm";
+  document.getElementById('impeller_size').textContent = impSize ? impSize : '—';
+  // curve range (min and max GPM at base RPM)
+  const gpmList = pump.dataPoints.map(d => d.gpm);
+  const headList = pump.dataPoints.map(d => d.head_m);
+  const min = Math.min(...gpmList);
+  const max = Math.max(...gpmList);
+  const minh = Math.min(...headList);
+  const maxh = Math.max(...headList);
+  document.getElementById('curveRange').textContent = `${(min).toFixed(2)} — ${(max).toFixed(2)} GPM`;
+  document.getElementById('headRange').textContent = `${(maxh * 0.0981).toFixed(2)} — ${(minh * 0.0981).toFixed(2)} bar`;
+}
+
+
+function interpolateHead(flow, head, flow_p) {
+  if (flow_p <= flow[0]) {
+    return { head_m: head[0], note: 'below_range' };
+  }
+  if (flow_p >= flow[flow.length - 1]) {
+    return { head_m: head[flow.length - 1], note: 'above_range' };
+  }
+
+  for (let i = 0; i < flow.length - 1; i++) {
+    const a = flow[i], b = flow[i + 1];
+    if (flow_p >= a && flow_p <= b) {
+      const t = (flow_p - a) / (b - a);
+      const head_m = head[i] + t * (head[i + 1] - head[i]);      
+      return head_m;
+    }
+  }
+}
+
+function correctedD(flowBase, headBase, kwBase, flow_p, head_p, D_min, D_max, D_ref, ratioRPM) {
+  const tol = 0.1; // meters
+  let lo = D_min, hi = D_max;
+  let bestD = D_ref;
+  let bestErr = Infinity;
+  let iterations = 0;
+  while (iterations < 40) {
+    const mid = (lo + hi)/2;
+    const D_ratio = mid / D_max; 
+    
+    const scaledFlow = flowBase.map(f => f * D_ratio * ratioRPM);
+    const scaledHead = headBase.map(h => h * Math.pow(D_ratio,2) * Math.pow(ratioRPM,2));
+    const interp = interpolateHP(scaledFlow, scaledHead, kwBase, flow_p);
+    const h_at_mid = interp.head_m;
+    const err = h_at_mid - head_p;
+    if (Math.abs(err) < Math.abs(bestErr)) {
+      bestErr = err;
+      bestD = mid;
+    }
+    if (Math.abs(err) <= tol) {
+      return mid;
+    }
+    // if computed head is too low, need larger D (increase D -> head increases)
+    if (h_at_mid < head_p) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+    iterations++;
+  }
+  if (Math.abs(bestErr) > tol) 
+    console.warn ('correctedDBinary: best error', bestErr);
+  return bestD;
+}
+
+
+function interpolateHP(flow, head, kw, flow_p) {
+  if (flow_p <= flow[0]) {
+    console.warn("below_range");
+    return { head_m: head[0], kw_p: kw[0], note: 'below_range' };
+  }
+  if (flow_p >= flow[flow.length - 1]) {
+    console.warn("above_range");
+    return { head_m: head[flow.length - 1], kw_p: kw[flow.length - 1], note: 'above_range' };
+  }
+
+  for (let i = 0; i < flow.length - 1; i++) {
+    const a = flow[i], b = flow[i + 1];
+    if (flow_p >= a && flow_p <= b) {
+      const t = (flow_p - a) / (b - a);
+      const head_m = head[i] + t * (head[i + 1] - head[i]);
+      const kw_p = kw[i] + t * (kw[i + 1] - kw[i]);
+      return { head_m, kw_p, note: 'interpolated' };
+    }
+  }  
+}
+
+/* --- Utility: linear interpolation for KW (and head if needed) vs GPM --- */
+function interpAtFlow(dataPoints, flow) {
+  // dataPoints: array sorted by gpm ascending (should be from XML)
+  const sorted = dataPoints.slice().sort((a,b) => a.gpm - b.gpm);
+  if (flow <= sorted[0].gpm) return { head_m: sorted[0].head_m, kw: sorted[0].kw, note: 'below_range' };
+  if (flow >= sorted[sorted.length-1].gpm) return { head_m: sorted[sorted.length-1].head_m, kw: sorted[sorted.length-1].kw, note: 'above_range' };
+
+  for (let i=0;i<sorted.length-1;i++){
+    const a = sorted[i], b = sorted[i+1];
+    if (flow >= a.gpm && flow <= b.gpm) {
+      const t = (flow - a.gpm) / (b.gpm - a.gpm);
+      const head_m = a.head_m + t*(b.head_m - a.head_m);
+      const kw = a.kw + t*(b.kw - a.kw);
+      return { head_m, kw, note: 'interpolated' };
+    }
+  }
+  // fallback
+  return { head_m: sorted[0].head_m, kw: sorted[0].kw, note: 'fallback' };
+}
+
+/* --- Physics & Affinity laws --- */
+/* Affinity:
+   Q ∝ N
+   H ∝ N^2
+   P ∝ N^3
+   We'll treat input Flow and Head as measured at base RPM (pump.baseRpm).
+   Steps:
+   1) Given userFlow (at baseRPM), we find KW_base by interpolation of the pump curve at that flow.
+   2) Scale Q_new = userFlow * (N_new / N_base)
+      H_new = head_base * (N_new / N_base)^2
+      P_new = KW_base * (N_new / N_base)^3
+   3) Efficiency uses hydraulic power: hydraulic_kW = (Q_gpm * H_ft / 3960) * 0.746
+      Efficiency = hydraulic_kW / electrical_kW * 100
+      Convert head (m) -> ft: 1 m = 3.28084 ft
+*/
+function metersToFeet(m){ return m * 3.28084; }
+function bartometer(b){ return b / 0.0981;  }
+
+function computeEfficiency(q_gpm, head_m, power_kw){
+  const head_ft = metersToFeet(head_m);
+  const hydraulic_hp = (q_gpm * head_ft) / 3960; // hydraulic horsepower
+  const hydraulic_kw = hydraulic_hp * 0.746; // convert hp -> kW
+  if (power_kw <= 0) return NaN;
+  return (hydraulic_kw / power_kw) * 100;
+}
+
+function plotPumpCurve(flow, head, rflow, rhead) {
+    // Get the canvas context
+    const canvas = document.getElementById('pumpChart');
+    if (!canvas) {
+        console.error("Canvas element with id 'pumpChart' not found.");
+        return;
+    }
+    const ctx = canvas.getContext('2d');
+
+    // 1. Prepare Curve Data
+    // Map the separate flow and head arrays into {x, y} objects
+    const shorterLength = flow.length;
+    const curvePoints = flow.slice(0, shorterLength).map((val, index) => {return { x: val, y: head[index] };});
+
+    // 2. Prepare Rated Point Data
+    const ratedPoint = [{ x: rflow, y: rhead }];
+    const rflow_150 = rflow * 1.5;
+    const rhead_150 = interpolateHead(flow, head, rflow_150);
+    const rated_150Point = [{ x: rflow_150, y: rhead_150 }]
+
+    // 3. Destroy existing chart instance if it exists (to prevent overlays)
+    // Assumes 'window.myPumpChart' stores the instance globally
+    if (window.myPumpChart) {
+        window.myPumpChart.destroy();
+        window.myPumpChart = null;
+    }
+
+    // 4. Create the Chart
+    window.myPumpChart = new Chart(ctx, {
+        type: 'scatter', 
+        data: {
+            datasets: [
+                {
+                    label: 'Pump Curve',
+                    data: curvePoints,
+                    showLine: true,         // Connect points to make a curve
+                    borderColor: 'blue',
+                    backgroundColor: 'rgba(0, 0, 255, 0.1)',
+                    tension: 0.4,           // Smooth cubic interpolation
+                    fill: false, pointRadius: 0
+                },
+                {
+                    label: 'Rated Point',
+                    data: ratedPoint,
+                    backgroundColor: 'red',
+                    borderColor: 'darkred',
+                    pointRadius: 8,         // Larger radius to annotate clearly
+                    pointStyle: 'circle'
+                },
+                {
+                    label: '150% of flow',
+                    data: rated_150Point,
+                    backgroundColor: 'red',
+                    borderColor: 'darkred',
+                    pointRadius: 8,         // Larger radius to annotate clearly
+                    pointStyle: 'circle'
+                }              
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    type: 'linear',
+                    position: 'bottom',
+                    title: { display: true, text: 'Flow' }
+                },
+                y: {
+                    title: { display: true, text: 'Head' }
+                }
+            }
+        }
+    });
+}
+
+
+/* --- Predict function called by button --- */
+function predict() {
+  const sel = document.getElementById('pumpSelect');
+  const pumpName = sel.value;
+  if (!pumpName) { alert('Please choose a pump model.'); return; }
+  const pump = pumps.find(p => p.name === pumpName);
+  const baseRPM = pump.baseRpm;
+  if (!baseRPM) { alert('Base RPM missing for this pump in XML'); return; }
+
+  const q_input = parseFloat(document.getElementById('inputFlow').value);
+  const h_input = bartometer(parseFloat(document.getElementById('inputHead').value));
+  const newRPM = parseFloat(document.getElementById('inputSpeed').value);
+
+  if (isNaN(q_input) || isNaN(h_input) || isNaN(newRPM)) {
+    alert('Please enter Flow (GPM), Head (m) and New Speed (RPM).');
+    return;
+  }
+  resetResults();
+
+  // 1) Find KW at q_input by interpolation on the base curve
+  const interp = interpAtFlow(pump.dataPoints, q_input);
+  const kw_base_from_curve = interp.kw;
+  const head_from_curve = interp.head_m;
+  const ratioRPM = newRPM / baseRPM;
+  const H_Ratio = (h_input / head_from_curve) || 1;
+  const D_ref = pump.baseD * Math.sqrt(H_Ratio); 
+
+  let t_flow = pump.dataPoints.map(dp => dp.gpm);
+  let t_head = pump.dataPoints.map(dp => dp.head_m);
+  let t_kw = pump.dataPoints.map(dp => dp.kw);  
+
+  let p_flow =[];
+  let p_head = [];
+  let p_kw = [];
+
+  for (i=0;i < t_flow.length;i++){
+    p_flow[i] = t_flow[i];
+    p_head[i] = t_head[i];
+    p_kw[i] = t_kw[i];    
+  } 
+  
+  let D = correctedD(t_flow, t_head, t_kw, q_input, h_input, pump.MinD, pump.baseD, D_ref, ratioRPM);
+  let D_Status = "OK";
+  if (D < pump.MinD){
+    D = parseFloat(pump.MinD);
+    D_Status = "Below the range";
+  } else if(D > pump.baseD){
+    D = parseFloat(pump.baseD);
+    D_Status = "Above the range";
+  }
+  
+  const D_Ratio = D / pump.baseD;  
+  
+  for (i=0;i < p_flow.length;i++){
+    p_flow[i] = p_flow[i] * D_Ratio * ratioRPM;
+    p_head[i] = p_head[i] * Math.pow(D_Ratio,2) * Math.pow(ratioRPM,2);
+    p_kw[i] = p_kw[i] * Math.pow(D_Ratio,3) * Math.pow(ratioRPM,3);
+  }  
+
+  const newScaled = interpolateHP(p_flow, p_head, p_kw, q_input);
+  let H_curve_newRPM = newScaled.head_m;
+  let P_curve_newRPM = newScaled.kw_p;
+  const interp150 = interpolateHP(p_flow, p_head, p_kw, q_input*1.5);
+  const H_150 = interp150.head_m;
+  const P_150 = interp150.kw_p;
+  // 3) efficiencies
+  const eff_new = computeEfficiency(q_input*1.5,H_150, P_150);
+  const eff_base = computeEfficiency(q_input, H_curve_newRPM, P_curve_newRPM);
+  let h_new = H_curve_newRPM;
+  let p_new = P_curve_newRPM;
+  let Q_equiv = q_input;
+  let q_new = q_input;
+  // 4) check scaled curve range
+  const gpmList = pump.dataPoints.map(d => d.gpm);
+  const minG = Math.min(...gpmList);
+  const maxG = Math.max(...gpmList);
+  const minG_new = minG * ratioRPM * D_Ratio;
+  const maxG_new = maxG * ratioRPM * D_Ratio;
+  const inRange = (Q_equiv >= minG_new - 1e-6) && (Q_equiv <= maxG_new + 1e-6);  
+
+  // 5) Show results
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('res_q_base').textContent = `${q_input.toFixed(2)} GPM`;
+  document.getElementById('res_h_base').textContent = `${H_curve_newRPM.toFixed(2)} m / ${(H_curve_newRPM * 0.0981).toFixed(2)} bar`;
+  document.getElementById('res_p_base').textContent = `${P_curve_newRPM.toFixed(3)} kW / ${(P_curve_newRPM / 0.746).toFixed(3)} hp`;
+  document.getElementById('res_eff_base').textContent = isNaN(eff_base) ? 'N/A' : eff_base.toFixed(2) + ' %';
+
+  document.getElementById('res_q_new').textContent = `${q_input*1.5.toFixed(2)} GPM`;
+  document.getElementById('res_h_new').textContent = `${H_150.toFixed(2)} m / ${(H_150 * 0.0981).toFixed(2)} bar`;
+  document.getElementById('res_p_new').textContent = `${P_150.toFixed(2)} kW / ${(P_150 / 0.746).toFixed(2)} hp`;
+  document.getElementById('res_eff_new').textContent = isNaN(eff_new) ? 'N/A' : eff_new.toFixed(2) + ' %';
+
+  // Status message
+  const statusEl = document.getElementById('statusMsg');
+  statusEl.innerHTML = '';
+  if (interp.note === 'below_range') {
+    statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is below the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM). Interpolation used the nearest endpoint; predictions may be inaccurate.</div>`;
+    statusEl.innerHTML += `<div class="warn">The calculated impeller diameter is ${D.toFixed(0)} mm.`;
+  } else if(interp.note === 'above_range'){
+    statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is above the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM). Interpolation used the nearest endpoint; predictions may be inaccurate.</div>`;
+    statusEl.innerHTML += `<div class="warn">The calculated impeller diameter is ${D.toFixed(0)} mm.`;
+  } else if(D_Status === 'Above the range'){
+    statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is above the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM). Interpolation used the nearest endpoint; predictions may be inaccurate.</div>`;
+    statusEl.innerHTML += `<div class="warn">The calculated impeller diameter is ${D.toFixed(0)} mm.`;    
+  } else if (D_Status === 'Below the range') {
+    statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is below the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM). Interpolation used the nearest endpoint; predictions may be inaccurate.</div>`;        
+    statusEl.innerHTML += `<div class="warn">The calculated impeller diameter is ${D.toFixed(0)} mm.`;
+  } else {
+    statusEl.innerHTML += `<div class="ok">The calculated impeller diameter is ${D.toFixed(0)} mm.`;  
+  
+    plotPumpCurve(p_flow, p_head, q_input, H_curve_newRPM);
+    
+    const curveCheckEl = document.getElementById('curveCheck');
+    document.getElementById('curveCheckCard').style.display = 'block';
+
+    const statusText = inRange ? "In Range" : "Out of Range";
+    const statusClass = inRange ? "ok" : "warn";
+    const note = inRange ? "" : "Operating outside the curve is not recommended.";
+
+    curveCheckEl.innerHTML = `
+    <table border="1" cellpadding="6" style="border-collapse: collapse; width:100%; text-align:center;">
+      <thead>
+        <tr>
+          <th>Predicted Flow (GPM)</th>
+          <th>Curve Range (GPM)</th>
+          <th>Status</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>${q_input.toFixed(2)}</td>
+          <td>${minG_new.toFixed(2)} — ${maxG_new.toFixed(2)}</td>
+          <td class="${statusClass}"><strong>${statusText}</strong></td>
+          <td>${note}</td>
+        </tr>
+      </tbody>
+    </table>
+    `;  
+    curveCheckEl.innerHTML += `<div style="margin-top:8px;"><strong>Summary:</strong><br> Rated Flow=${q_input.toFixed(2)} GPM, Rated Pressure=${H_curve_newRPM.toFixed(2)} m, Power at 100%=${P_curve_newRPM.toFixed(3)} kW, Power at 150%=${P_150.toFixed(3)} kW → at ${newRPM} RPM.</div>`;
+  }
+}
+
+/* --- Reset results --- */
+function resetResults(){
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('statusMsg').innerHTML = '';
+  document.getElementById('curveCheckCard').style.display = 'none';
+  if (window.myPumpChart) {
+    window.myPumpChart.destroy();
+    window.myPumpChart = null;
+  }
+}
+
+/* --- When page loads, show pump dropdown populated above --- */
+onPumpChange(); // in case there's default selection
+</script>
+</body>
+</html>
