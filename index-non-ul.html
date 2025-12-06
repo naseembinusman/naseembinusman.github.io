@@ -467,13 +467,13 @@ function predict() {
   if (interp.note === 'below_range') {
     statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is below the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM). Interpolation used the nearest endpoint; predictions may be inaccurate. The calculated impeller diameter is ${D.toFixed(0)} mm.</div>`;
   } else if(interp.note === 'above_range'){
-    statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is above the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM). Interpolation used the nearest endpoint; predictions may be inaccurate. The calculated impeller diameter is ${D.toFixed(0)} mm.</div></div>`;    statusEl.innerHTML += `<div class="warn">The calculated impeller diameter is ${D.toFixed(0)} mm.`;
+    statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is above the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM). Interpolation used the nearest endpoint; predictions may be inaccurate. The calculated impeller diameter is ${D.toFixed(0)} mm.</div>`;
   } else if(D_Status === 'Above the range'){
-    statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is above the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM). Interpolation used the nearest endpoint; predictions may be inaccurate. The calculated impeller diameter is ${D.toFixed(0)} mm.</div></div>`;    
+    statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is above the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM). Interpolation used the nearest endpoint; predictions may be inaccurate. The calculated impeller diameter is ${D.toFixed(0)} mm.</div>`;    
   } else if (D_Status === 'Below the range') {
-    statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is below the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM). Interpolation used the nearest endpoint; predictions may be inaccurate. The calculated impeller diameter is ${D.toFixed(0)} mm.</div></div>`;
+    statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is below the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM). Interpolation used the nearest endpoint; predictions may be inaccurate. The calculated impeller diameter is ${D.toFixed(0)} mm.</div>`;
   } else {
-    statusEl.innerHTML += `<div class="ok">The calculated impeller diameter is ${D.toFixed(0)} mm.`;
+    statusEl.innerHTML += `<div class="ok">The calculated impeller diameter is ${D.toFixed(0)} mm.</div>`;
     
     plotPumpCurve(p_flow, p_head, q_input, H_curve_newRPM);
     
