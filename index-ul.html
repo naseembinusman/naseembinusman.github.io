@@ -63,13 +63,10 @@
       <button id="predictBtn">Predict at new speed</button>
       <button id="resetBtn" style="margin-left:10px;">Clear results</button>
     </div>
-    <small>Note: enter Flow & Head measured at the pump's base RPM (shown above). If you have measured at a different RPM, please adjust first.</small>
+    <div id="statusMsg"></div>
   </div>
 
-  <div id="results" style="display:none;">
-    <div id="statusMsg"></div>
-
-    <div class="card">
+  <div class="card" id="results" style="display:none;">    
       <h3>Predicted Values</h3>
       <table>
         <thead>
@@ -85,15 +82,14 @@
           <tr><td>Power (kW)</td><td id="res_p_base"></td><td id="res_p_new"></td></tr>
           <tr><td>Efficiency (%)</td><td id="res_eff_base"></td><td id="res_eff_new"></td></tr>
         </tbody>
-      </table>
-    </div>
-
-    <div class="card" id="curveCheckCard" style="display:none;">
-      <h3>Curve Check</h3>
-      <div id="curveCheck"></div>
-    </div>
+      </table>    
   </div>
 
+  <div class="card" id="curveCheckCard" style="display:none;">
+    <h3>Curve Check</h3>
+    <div id="curveCheck"></div>
+  </div>
+  
   <hr style="margin-top:20px;">
   <canvas id="pumpChart"></canvas>
 
@@ -373,6 +369,7 @@
     }
 
     function startPredict(datapoints, q_input, h_input_m, baseRPM, newRPM, baseD, minD) {
+      resetResults();
       q_input = parseFloat(q_input);
       if (isNaN(q_input) || isNaN(h_input_m) || isNaN(newRPM) || isNaN(baseRPM)) {
         alert('Please provide numeric Flow, Pressure (bar) and RPM values.');
@@ -384,6 +381,7 @@
       const head_from_curve = interpBase.head_m;
 
       const ratioRPM = newRPM / baseRPM;
+      
       const H_Ratio = (h_input_m / head_from_curve) || 1;
       const D_ref = baseD * Math.sqrt(H_Ratio);
 
@@ -391,12 +389,26 @@
       const headBase = datapoints.map(d => d.head_m);
       const kwBase = datapoints.map(d => d.kw);
 
-      let D = correctedDBinary(flowBase, headBase, kwBase, q_input, h_input_m, minD, baseD, D_ref, ratioRPM);
       let D_Status = "OK";
-      if (D < minD) { D = parseFloat(minD); D_Status = "Below the range"; }
-      if (D > baseD) { D = parseFloat(baseD); D_Status = "Above the range"; }
+      let D = D_ref;
+
+      if (D_ref < minD)
+      {
+        D = parseFloat(minD); 
+        D_Status = "Below the range";
+      }
+      else if (D_ref > baseD)
+      {
+        D = parseFloat(baseD); 
+        D_Status = "Above the range";
+      }
+      else
+      {        
+        D = correctedDBinary(flowBase, headBase, kwBase, q_input, h_input_m, minD, baseD, D_ref, ratioRPM);        
+      }
 
       const D_Ratio = D / baseD;
+      
       const scaledFlow = flowBase.map(f => f * D_Ratio * ratioRPM);
       const scaledHead = headBase.map(h => h * Math.pow(D_Ratio,2) * Math.pow(ratioRPM,2));
       const scaledKw = kwBase.map(k => k * Math.pow(D_Ratio,3) * Math.pow(ratioRPM,3));
@@ -411,59 +423,61 @@
 
       const eff_base = computeEfficiency(q_input, H_curve_new, P_curve_new);
       const eff_new = computeEfficiency(q_input * 1.5, H_150, P_150);
-
-      document.getElementById('results').style.display = 'block';
-      document.getElementById('res_q_base').textContent = `${formatNum(q_input,2)} GPM`;
-      document.getElementById('res_h_base').textContent = `${formatNum(H_curve_new,2)} m / ${formatNum(H_curve_new * 0.0980665,2)} bar`;
-      document.getElementById('res_p_base').textContent = `${formatNum(P_curve_new,3)} kW / ${formatNum(P_curve_new / 0.745699872,3)} hp`;
-      document.getElementById('res_eff_base').textContent = isNaN(eff_base) ? 'N/A' : `${formatNum(eff_base,2)} %`;
-
-      document.getElementById('res_q_new').textContent = `${formatNum(q_input * 1.5,2)} GPM`;
-      document.getElementById('res_h_new').textContent = `${formatNum(H_150,2)} m / ${formatNum(H_150 * 0.0980665,2)} bar`;
-      document.getElementById('res_p_new').textContent = `${formatNum(P_150,3)} kW / ${formatNum(P_150 / 0.745699872,3)} hp`;
-      document.getElementById('res_eff_new').textContent = isNaN(eff_new) ? 'N/A' : `${formatNum(eff_new,2)} %`;
-
-      const statusEl = document.getElementById('statusMsg');
-      statusEl.innerHTML = '';
-      if (interpBase.note === 'below_range' || interpBase.note === 'above_range') {
-        statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${formatNum(q_input,2)} GPM) is outside the pump curve range (${formatNum(Math.min(...flowBase),2)}—${formatNum(Math.max(...flowBase),2)} GPM). Interpolation used nearest endpoint; predictions may be inaccurate.</div>`;
-      } else if (D_Status !== 'OK') {
-        statusEl.innerHTML += `<div class="warn">Note: the calculated impeller diameter is ${D.toFixed(0)} mm (status: ${escapeHtml(D_Status)}). Predictions may be limited.</div>`;
-      } else {
-        statusEl.innerHTML += `<div class="ok">Calculated impeller diameter: ${D.toFixed(0)} mm.</div>`;
-      }
-
+      
       const minG = Math.min(...flowBase);
       const maxG = Math.max(...flowBase);
       const minG_new = minG * ratioRPM * D_Ratio;
       const maxG_new = maxG * ratioRPM * D_Ratio;
       const inRange = (q_input >= minG_new - 1e-6) && (q_input <= maxG_new + 1e-6);
-
+      
       document.getElementById('curveCheckCard').style.display = 'block';
-      const curveCheckEl = document.getElementById('curveCheck');
-      curveCheckEl.innerHTML = `
-        <table border="1" cellpadding="6" style="border-collapse: collapse; width:100%; text-align:center;">
-          <thead>
-            <tr>
-              <th>Predicted Flow (GPM)</th>
-              <th>Curve Range (GPM)</th>
-              <th>Status</th>
-              <th>Note</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>${formatNum(q_input,2)}</td>
-              <td>${formatNum(minG_new,2)} — ${formatNum(maxG_new,2)}</td>
-              <td class="${inRange ? 'ok' : 'warn'}"><strong>${inRange ? 'In Range' : 'Out of Range'}</strong></td>
-              <td>${inRange ? '' : 'Operating outside the curve is not recommended.'}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div style="margin-top:8px;"><strong>Summary:</strong><br> Rated Flow=${formatNum(q_input,2)} GPM, Rated Pressure=${formatNum(H_curve_new,2)} m, Power at 100%=${formatNum(P_curve_new,3)} kW, Power at 150%=${formatNum(P_150,3)} kW → at ${newRPM} RPM.</div>
-      `;
+      
+      const statusEl = document.getElementById('statusMsg');
+      statusEl.innerHTML = '';
+      if (interpBase.note === 'below_range' || interpBase.note === 'above_range') {
+        statusEl.innerHTML += `<div class="warn">Note: The entered Flow (${formatNum(q_input,2)} GPM) is outside the pump curve range (${formatNum(Math.min(...flowBase),2)}—${formatNum(Math.max(...flowBase),2)} GPM). Interpolation used nearest endpoint; predictions may be inaccurate.</div>`;
+      } else if (D_Status !== 'OK') {
+        statusEl.innerHTML += `<div class="warn">Note: Impeller Diameter is not OK - Pressure ${escapeHtml(D_Status)}.</div>`;
+      } else {
+        statusEl.innerHTML += `<div class="ok">Calculated impeller diameter: ${D.toFixed(0)} mm.</div>`;
 
-      plotPumpCurve(scaledFlow, scaledHead, q_input, H_curve_new, H_150);
+        document.getElementById('results').style.display = 'block';
+        document.getElementById('res_q_base').textContent = `${formatNum(q_input,2)} GPM`;
+        document.getElementById('res_h_base').textContent = `${formatNum(H_curve_new,2)} m / ${formatNum(H_curve_new * 0.0980665,2)} bar`;
+        document.getElementById('res_p_base').textContent = `${formatNum(P_curve_new,3)} kW / ${formatNum(P_curve_new / 0.745699872,3)} hp`;
+        document.getElementById('res_eff_base').textContent = isNaN(eff_base) ? 'N/A' : `${formatNum(eff_base,2)} %`;
+
+        document.getElementById('res_q_new').textContent = `${formatNum(q_input * 1.5,2)} GPM`;
+        document.getElementById('res_h_new').textContent = `${formatNum(H_150,2)} m / ${formatNum(H_150 * 0.0980665,2)} bar`;
+        document.getElementById('res_p_new').textContent = `${formatNum(P_150,3)} kW / ${formatNum(P_150 / 0.745699872,3)} hp`;
+        document.getElementById('res_eff_new').textContent = isNaN(eff_new) ? 'N/A' : `${formatNum(eff_new,2)} %`;
+
+        plotPumpCurve(scaledFlow, scaledHead, q_input, H_curve_new, H_150);
+      }
+      
+      const curveCheckEl = document.getElementById('curveCheck');
+      curveCheckEl.innerHTML = '';      
+        curveCheckEl.innerHTML = `
+          <table border="1" cellpadding="6" style="border-collapse: collapse; width:100%; text-align:center;">
+            <thead>
+              <tr>
+                <th>Predicted Flow (GPM)</th>
+                <th>Curve Range (GPM)</th>
+                <th>Status</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${formatNum(q_input,2)}</td>
+                <td>${formatNum(minG_new,2)} — ${formatNum(maxG_new,2)}</td>
+                <td class="${inRange ? 'ok' : 'warn'}"><strong>${inRange ? 'Flow In Range' : 'Flow Out of Range'}</strong></td>
+                <td>${inRange ? '' : 'Operating outside the curve is not recommended.'}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top:8px;"><strong>Summary:</strong><br> Rated Flow=${formatNum(q_input,2)} GPM, Rated Pressure=${formatNum(H_curve_new,2)} m, Power at 100%=${formatNum(P_curve_new,3)} kW, Power at 150%=${formatNum(P_150,3)} kW → at ${newRPM} RPM.</div>
+        `;
     }
 
     function predict() {
@@ -535,3 +549,4 @@
   </script>
 </body>
 </html>
+
