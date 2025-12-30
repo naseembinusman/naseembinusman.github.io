@@ -1,0 +1,64 @@
+<?xml version="1.0" ?>
+<PumpsData>
+  <Flow rate="50">
+    <PumpModel>EH2515250</PumpModel>
+  </Flow>
+  <Flow rate="100">
+    <PumpModel>EH2515250</PumpModel>
+  </Flow>
+  <Flow rate="150">
+    <PumpModel>EH2515250</PumpModel>
+  </Flow>
+  <Flow rate="200">
+    <PumpModel>EH32250</PumpModel>
+  </Flow>
+  <Flow rate="250">
+    <PumpModel>EH32250</PumpModel>
+  </Flow>
+  <Flow rate="300">
+    <PumpModel>EH425250</PumpModel>
+    <PumpModel>EHES425250</PumpModel>
+  </Flow>
+  <Flow rate="400">
+    <PumpModel>EH425250</PumpModel>
+    <PumpModel>EHES425250</PumpModel>
+  </Flow>
+  <Flow rate="450">
+    <PumpModel>EH53250</PumpModel>
+    <PumpModel>EHES53250</PumpModel>
+    <PumpModel>ESF100-250</PumpModel>
+    <PumpModel>ESF100-375</PumpModel>
+  </Flow>
+  <Flow rate="500">
+    <PumpModel>EH53250</PumpModel>
+    <PumpModel>EH53315</PumpModel>
+    <PumpModel>EHES53250</PumpModel>
+    <PumpModel>ESF100-250</PumpModel>
+    <PumpModel>ESF100-375</PumpModel>
+  </Flow>
+  <Flow rate="750">
+    <PumpModel>EH54315</PumpModel>
+    <PumpModel>EHES54200</PumpModel>
+    <PumpModel>ESF100-250</PumpModel>
+    <PumpModel>ESF100-375</PumpModel>
+  </Flow>
+  <Flow rate="1000">
+    <PumpModel>EH64315</PumpModel>
+    <PumpModel>EHES64200</PumpModel>
+    <PumpModel>HSC125-290</PumpModel>
+    <PumpModel>ESF125-365</PumpModel>
+  </Flow>
+  <Flow rate="1250">
+    <PumpModel>EH64315</PumpModel>
+    <PumpModel>HSC125-290</PumpModel>
+    <PumpModel>ESF125-365</PumpModel>
+  </Flow>
+  <Flow rate="1500">
+    <PumpModel>HSC150-290</PumpModel>
+    <PumpModel>ESF150-360</PumpModel>
+  </Flow>
+  <Flow rate="2000">
+    <PumpModel>HSC150-290</PumpModel>
+    <PumpModel>ESF150-360</PumpModel>
+  </Flow>
+</PumpsData>
