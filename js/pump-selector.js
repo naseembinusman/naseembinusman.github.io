@@ -13,10 +13,10 @@ async function loadXML(path) {
 
 async function loadDatabases() {
     console.log("Database loading....");
-    pumpsDB   = await loadXML("https://raw.githubusercontent.com/naseembinusman/pumpmodel/2db3ef30f348b65a1051f9ba1c2ee5ce0d1f2e18/data/pumps.xml");
-    minDB     = await loadXML("https://raw.githubusercontent.com/naseembinusman/pumpmodel/2db3ef30f348b65a1051f9ba1c2ee5ce0d1f2e18/data/min.xml");
-    maxDB     = await loadXML("https://raw.githubusercontent.com/naseembinusman/pumpmodel/2db3ef30f348b65a1051f9ba1c2ee5ce0d1f2e18/data/max.xml");
-    impellerDB = await loadXML("https://raw.githubusercontent.com/naseembinusman/pumpmodel/2db3ef30f348b65a1051f9ba1c2ee5ce0d1f2e18/data/impeller.xml");
+    pumpsDB   = await loadXML("data/pumps.xml");
+    minDB     = await loadXML("data/min.xml");
+    maxDB     = await loadXML("data/max.xml");
+    impellerDB = await loadXML("data/impeller.xml");
     console.log("Database loaded!");
 }
 
@@ -391,23 +391,24 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
     const head = curve.map(p => p.head);
     const power = curve.map(p => p.kw);
 
-    const powerScale = 1;
-    const scaledPower = power.map(p => p * powerScale);
-
-    // Smooth flow points
+    const { flow_p: flowSmooth, head_p: headSmooth } = toPolynomial(flow, head, 2, 300);
+    const powerSmooth = toPolynomialP(flow, power, 3, 300);    
+    
+    /*const powerSmooth = flowSmooth.map(f => interpolateDi(flow, power, f));*/
+/*    
     const flowSmooth = generateFlowRange(flow[0], flow[flow.length - 1], 100);
     const headSmooth = flowSmooth.map(f => interpolateDi(flow, head, f));
-    const powerSmooth = flowSmooth.map(f => interpolateDi(flow, scaledPower, f));
-    const headMinSmooth = flowSmooth.map(f => interpolateDi(flow, head, f, base_D, dMin));
-    const headMaxSmooth = flowSmooth.map(f => interpolateDi(flow, head, f, base_D, dMax));
+    const powerSmooth = flowSmooth.map(f => interpolateDi(flow, power, f));
+*/
+    const headMinSmooth = flowSmooth.map(f => interpolateDi(flowSmooth, headSmooth, f, base_D, dMin));
+    const headMaxSmooth = flowSmooth.map(f => interpolateDi(flowSmooth, headSmooth, f, base_D, dMax));        
 
-    // Compute values at 100% and 150% flow
     const flow150 = ratedFlow * 1.5;
     const ratedHead = interpolateDi(flow, head, ratedFlow);
     const head150 = interpolateDi(flow, head, flow150);
-    const ratedPower = interpolateDi(flow, scaledPower, ratedFlow);
-    const power150 = interpolateDi(flow, scaledPower, flow150);
-    const maxFlow = flow[flow.length - 1];
+    const ratedPower = interpolateDi(flow, power, ratedFlow);
+    const power150 = interpolateDi(flow, power, flow150);
+    const maxFlow = flowSmooth[flowSmooth.length - 1];
 
     const data = {
         labels: flowSmooth,
@@ -502,8 +503,7 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
                 label: "Power (kW) - Base x3",
                 data: powerSmooth,
                 borderColor: "red",
-                fill: false,
-                borderDash: [5,5],
+                fill: false,                
                 pointRadius: 0,
             }
         ]
@@ -530,7 +530,7 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
                             radius: 6,
                             label: {
                                 enabled: true,
-                                content: `${(ratedPower/3).toFixed(2)} kW`,
+                                content: `${(ratedPower).toFixed(2)} kW`,
                                 position: 'bottom'
                             }
                         },
@@ -542,7 +542,7 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
                             radius: 6,
                             label: {
                                 enabled: true,
-                                content: `${(power150/3).toFixed(2)} kW`,
+                                content: `${(power150).toFixed(2)} kW`,
                                 position: 'bottom'
                             }
                         }
@@ -569,7 +569,6 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
 
 }
 
-// Helper functions
 function generateFlowRange(start, end, points) {
     const step = (end - start) / (points - 1);
     return Array.from({length: points}, (_, i) => start + i * step);
@@ -590,4 +589,84 @@ function interpolateDi(flowArr, headArr, targetFlow, base_D = 1, D = 1) {
     if (targetFlow < scaledFlow[0]) return scaledHead[0];
     if (targetFlow > scaledFlow[scaledFlow.length - 1]) return scaledHead[scaledHead.length - 1];
     return null;
+}
+
+function toPolynomial(flow, head, degree = 3, points = 300) {
+    if (flow.length !== head.length) {
+        console.log("Flow and head arrays must have the same length");
+    }
+
+    const x = flow.map(Number);
+    const y = head.map(Number);
+
+    const coeffs = polyfit(x, y, degree);
+
+    const poly = v =>
+        coeffs.reduce((sum, c, i) => sum + c * Math.pow(v, i), 0);
+
+    const minX = Math.min(...x);
+    const maxX = Math.max(...x);
+    const step = (maxX - minX) / (points - 1);
+
+    const flow_p = Array.from({ length: points }, (_, i) => minX + i * step);
+    const head_p = flow_p.map(poly);
+
+    return { flow_p, head_p };
+}
+
+function toPolynomialP(flow, power, degree = 3, points = 300) {
+    if (flow.length !== power.length) {
+        console.log("Flow and power arrays must have the same length");        
+    }
+
+    const x = flow.map(Number);
+    const y = power.map(Number);
+
+    const coeffs = polyfit(x, y, degree);
+
+    const poly = v =>
+        coeffs.reduce((sum, c, i) => sum + c * Math.pow(v, i), 0);
+
+    const minX = Math.min(...x);
+    const maxX = Math.max(...x);
+    const step = (maxX - minX) / (points - 1);
+
+    const flow_p = Array.from({ length: points }, (_, i) => minX + i * step);
+    const power_p = flow_p.map(poly);
+
+    return power_p;
+}
+
+function polyfit(x, y, degree) {
+    const n = degree + 1;
+
+    const X = Array.from({ length: n }, (_, i) =>
+        Array.from({ length: n }, (_, j) =>
+            x.reduce((sum, xi) => sum + Math.pow(xi, i + j), 0)
+        )
+    );
+
+    const Y = Array.from({ length: n }, (_, i) =>
+        x.reduce((sum, xi, k) => sum + y[k] * Math.pow(xi, i), 0)
+    );
+
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            const factor = X[j][i] / X[i][i];
+            for (let k = i; k < n; k++) {
+                X[j][k] -= factor * X[i][k];
+            }
+            Y[j] -= factor * Y[i];
+        }
+    }
+
+    const coeffs = Array(n).fill(0);
+    for (let i = n - 1; i >= 0; i--) {
+        coeffs[i] = Y[i] / X[i][i];
+        for (let j = i - 1; j >= 0; j--) {
+            Y[j] -= X[j][i] * coeffs[i];
+        }
+    }
+
+    return coeffs; 
 }
