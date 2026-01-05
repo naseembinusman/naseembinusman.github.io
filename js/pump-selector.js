@@ -13,10 +13,10 @@ async function loadXML(path) {
 
 async function loadDatabases() {
     console.log("Database loading....");
-    pumpsDB   = await loadXML("https://github.com/naseembinusman/naseembinusman.github.io/blob/29474ad5bf5574021bf712877924fbe450a92249/data/pumps.xml");
-    minDB     = await loadXML("https://github.com/naseembinusman/naseembinusman.github.io/blob/29474ad5bf5574021bf712877924fbe450a92249/data/min.xml");
-    maxDB     = await loadXML("https://github.com/naseembinusman/naseembinusman.github.io/blob/29474ad5bf5574021bf712877924fbe450a92249/data/max.xml");
-    impellerDB = await loadXML("https://github.com/naseembinusman/naseembinusman.github.io/blob/f9efe18aef8aad3eea00c53ad214d0ab4763e610/data/impeller.xml");
+    pumpsDB   = await loadXML("data/pumps.xml");
+    minDB     = await loadXML("data/min.xml");
+    maxDB     = await loadXML("data/max.xml");
+    impellerDB = await loadXML("data/impeller.xml");
     console.log("Database loaded!");
 }
 
