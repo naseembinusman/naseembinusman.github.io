@@ -1,6 +1,28 @@
 let minDB, maxDB;
 let impellerDB;
 let pumpsDB;
+let headChart = null;
+let powerChart = null;
+
+function clearResults() {
+    // Clear table
+    const tbody = document.querySelector("#resultsTable tbody");
+    if (tbody) tbody.innerHTML = "";
+
+    // Hide panel (optional)
+    document.getElementById("resultsPanel").classList.remove("show");
+
+    // Destroy charts if they exist
+    if (headChart) {
+        headChart.destroy();
+        headChart = null;
+    }
+
+    if (powerChart) {
+        powerChart.destroy();
+        powerChart = null;
+    }
+}
 
 
 async function loadXML(path) {
@@ -285,7 +307,7 @@ function calculatePump(){
 }
 
 document.getElementById("calculateBtn").addEventListener("click", () => {
-
+clearResults(); 
 calculatePump();
 
 });
