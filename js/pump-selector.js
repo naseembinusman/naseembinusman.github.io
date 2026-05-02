@@ -5,14 +5,13 @@ let headChart = null;
 let powerChart = null;
 
 function clearResults() {
-    // Clear table
+
     const tbody = document.querySelector("#resultsTable tbody");
     if (tbody) tbody.innerHTML = "";
 
-    // Hide panel (optional)
+    
     document.getElementById("resultsPanel").classList.remove("show");
-
-    // Destroy charts if they exist
+    
     if (headChart) {
         headChart.destroy();
         headChart = null;
@@ -24,14 +23,11 @@ function clearResults() {
     }
 }
 
-
 async function loadXML(path) {
     const res = await fetch(path);
     const text = await res.text();
     return new DOMParser().parseFromString(text, "text/xml");
 }
-
-// end of async function loadXML(path)
 
 async function loadDatabases() {
     console.log("Database loading....");
@@ -42,15 +38,11 @@ async function loadDatabases() {
     console.log("Database loaded!");
 }
 
-//end of async function loadDatabases() 
-
-loadDatabases();
-
 document.addEventListener("DOMContentLoaded", async () => {
   const flowSelect = document.getElementById("flowSelect");
   const modelSelect = document.getElementById("modelSelect");
 
-  await loadDatabases();   // make sure everything is ready
+  await loadDatabases();   
 
   const flows = pumpsDB.getElementsByTagName("Flow");
 
@@ -212,17 +204,17 @@ function applySpeedCorrection(flow, head, power, baseRPM, ratedRPM) {
 // end of function applySpeedCorrection(flow, head, power, baseRPM, ratedRPM)
 
 function calculatePump(){
-        const model = modelSelect.value;
-    const ratedFlow = parseFloat(flowSelect.value);
+    const model = document.getElementById("modelSelect").value;
+    const ratedFlow = parseFloat(document.getElementById("flowSelect").value);
     const ratedRPM = parseFloat(document.getElementById("ratedRPM").value);
     const unit = document.getElementById("pressureUnit").value;
-
+    
     const ratedHeadM = headToMeter(
         parseFloat(document.getElementById("ratedHead").value),
         unit
     );
 
-    if (!model || !ratedFlow || !ratedRPM || !ratedHeadM) {
+    if (!model || isNaN(ratedFlow) || isNaN(ratedRPM) || isNaN(ratedHeadM)) {
         return console.log("Please complete all inputs");
     }
 
@@ -315,7 +307,7 @@ calculatePump();
 // end of document.getElementById("calculateBtn").addEventListener("click", ()
 
 function printResults(model, curve, unit, ratedFlow, impeller, dMin, dMax) {
-    const sorted = [...curve].sort((a, b) => a.flow - b.flow);
+    const sorted = [...curve].sort((a, b) => a.gpm - b.gpm);
     const interp = (flow, key) => {
         for (let i = 0; i < sorted.length - 1; i++) {
             const p1 = sorted[i];
@@ -336,7 +328,7 @@ function printResults(model, curve, unit, ratedFlow, impeller, dMin, dMax) {
     const power150 = interp(flow150, "kw");
 
     const maxPower = Math.max(...sorted.map(p => p.kw));
-    const maxFlow = sorted[sorted.length - 1].flow;
+    const maxFlow = sorted[sorted.length - 1].gpm;
 
     const resultsPanel = document.getElementById("resultsPanel");
     const tbody = document.querySelector("#resultsTable tbody");
