@@ -516,7 +516,8 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
         plugins: [Chart.registry.getPlugin('annotation')]
     };
 
-    new Chart(document.getElementById("pumpCurveChart"), config);
+    headChart = new Chart(document.getElementById("pumpCurveChart"), config);
+    
 
     const dataPower = {
         labels: flowSmooth,
@@ -587,7 +588,7 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
         plugins: [Chart.registry.getPlugin('annotation')]
     };
 
-    new Chart(document.getElementById("pumpPowerChart"), configPower);
+    powerChart = new Chart(document.getElementById("pumpPowerChart"), configPower);
 
 }
 
