@@ -63,7 +63,9 @@ function onPumpChange() {
   document.getElementById('inputSection').style.display = 'block';
   document.getElementById('baseInfo').style.display = 'block';
   document.getElementById('baseRpmText').textContent = pump.baseRpm ? pump.baseRpm.toFixed(0) + ' RPM' : '—';
-  document.getElementById('baseRpmLabel').textContent = pump.baseRpm ? pump.baseRpm.toFixed(0) + ' RPM' : 'base RPM';
+  const newRPM = parseFloat(document.getElementById('inputSpeed').value);
+  document.getElementById('baseRpmLabel').textContent = newRPM;
+  //document.getElementById('baseRpmLabel').textContent = pump.baseRpm ? pump.baseRpm.toFixed(0) + ' RPM' : 'base RPM';
   const impSize = pump.MinD + " mm - " + pump.baseD + " mm";
   document.getElementById('impeller_size').textContent = impSize ? impSize : '—';
   // curve range (min and max GPM at base RPM)
