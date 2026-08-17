@@ -408,12 +408,6 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
     const { flow_p: flowSmooth, head_p: headSmooth } = toPolynomial(flow, head, 2, 300);
     const powerSmooth = toPolynomialP(flow, power, 3, 300);    
     
-    /*const powerSmooth = flowSmooth.map(f => interpolateDi(flow, power, f));*/
-/*    
-    const flowSmooth = generateFlowRange(flow[0], flow[flow.length - 1], 100);
-    const headSmooth = flowSmooth.map(f => interpolateDi(flow, head, f));
-    const powerSmooth = flowSmooth.map(f => interpolateDi(flow, power, f));
-*/
     const headMinSmooth = flowSmooth.map(f => interpolateDi(flowSmooth, headSmooth, f, base_D, dMin));
     const headMaxSmooth = flowSmooth.map(f => interpolateDi(flowSmooth, headSmooth, f, base_D, dMax));        
 
@@ -424,29 +418,43 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
     const power150 = interpolateDi(flow, power, flow150);
     const maxFlow = flowSmooth[flowSmooth.length - 1];
 
+    // Convert raw arrays into {x, y} coordinates for scatter/linear charts
+    const mapToXY = (xArr, yArr) => xArr.map((x, i) => ({ x: x, y: yArr[i] }));
+
     const data = {
-        labels: flowSmooth,
         datasets: [
             {
                 label: "Head (m) - Base",
-                data: headSmooth,
-                borderColor: "blue",
+                data: mapToXY(flowSmooth, headSmooth),
+                borderColor: "rgb(54, 162, 235)",
                 fill: false,
                 pointRadius: 0, 
+                yAxisID: 'yHead'
             },
             {
                 label: `Head @ dMin (${dMin} mm)`,
-                data: headMinSmooth,
-                borderColor: "black",
+                data: mapToXY(flowSmooth, headMinSmooth),
+                borderColor: "rgba(0, 0, 0, 0.6)",
+                borderDash: [5, 5],
                 fill: false,                
                 pointRadius: 0,
+                yAxisID: 'yHead'
             },
             {
                 label: `Head @ dMax (${dMax} mm)`,
-                data: headMaxSmooth,
+                data: mapToXY(flowSmooth, headMaxSmooth),
                 borderColor: "black",
                 fill: false,                
                 pointRadius: 0,
+                yAxisID: 'yHead'
+            },
+            {
+                label: "Power (kW) - Base x3",
+                data: mapToXY(flowSmooth, powerSmooth),
+                borderColor: "rgb(255, 99, 132)",
+                fill: false,                
+                pointRadius: 0,
+                yAxisID: 'yPower'
             }
         ]
     };
@@ -457,107 +465,67 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
+            interaction: { mode: 'nearest', intersect: false, axis: 'x' },
             plugins: {
                 title: {
                     display: true,
-                    text: "Pump Curve (Head)"
+                    text: "Pump Performance Curve (Head & Power)"
                 },
                 annotation: {
                     annotations: {
                         ratedHead: {
                             type: 'point',
+                            xScaleID: 'x',
+                            yScaleID: 'yHead',
                             xValue: ratedFlow,
                             yValue: ratedHead,
-                            backgroundColor: 'blue',
+                            backgroundColor: 'rgb(54, 162, 235)',
                             radius: 6,
                             label: {
                                 enabled: true,
-                                content: `${ratedHead.toFixed(2)} m`,
+                                content: `Rated Head: ${ratedHead.toFixed(2)} m`,
                                 position: 'top'
                             }
                         },
                         head150: {
                             type: 'point',
+                            xScaleID: 'x',
+                            yScaleID: 'yHead',
                             xValue: flow150,
                             yValue: head150,
-                            backgroundColor: 'blue',
+                            backgroundColor: 'rgb(54, 162, 235)',
                             radius: 6,
                             label: {
                                 enabled: true,
-                                content: `${head150.toFixed(2)} m`,
+                                content: `150% Head: ${head150.toFixed(2)} m`,
                                 position: 'top'
                             }
                         },
-                    }
-                }
-            },
-            scales: {
-                x: {
-                type: 'linear',
-                title: { display: false, text: "Flow (GPM)" },
-                min: 0,
-                max: maxFlow,
-                ticks: {
-                    stepSize: 500,
-                }
-            },
-                y: { title: { display: true, text: "Head (m)" }, min: 0 }
-            }
-        },
-        plugins: [Chart.registry.getPlugin('annotation')]
-    };
-
-    headChart = new Chart(document.getElementById("pumpCurveChart"), config);
-    
-
-    const dataPower = {
-        labels: flowSmooth,
-        datasets: [
-            {
-                label: "Power (kW) - Base x3",
-                data: powerSmooth,
-                borderColor: "red",
-                fill: false,                
-                pointRadius: 0,
-            }
-        ]
-    };
-
-    const configPower = {
-        type: "line",
-        data: dataPower,
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-                title: {
-                    display: false,
-                },
-                annotation: {
-                    annotations: {
                         ratedPower: {
                             type: 'point',
+                            xScaleID: 'x',
+                            yScaleID: 'yPower',
                             xValue: ratedFlow,
                             yValue: ratedPower,
-                            backgroundColor: 'red',
+                            backgroundColor: 'rgb(255, 99, 132)',
                             radius: 6,
                             label: {
                                 enabled: true,
-                                content: `${(ratedPower).toFixed(2)} kW`,
+                                content: `Rated Power: ${ratedPower.toFixed(2)} kW`,
                                 position: 'bottom'
                             }
                         },
                         power150: {
                             type: 'point',
+                            xScaleID: 'x',
+                            yScaleID: 'yPower',
                             xValue: flow150,
                             yValue: power150,
-                            backgroundColor: 'red',
+                            backgroundColor: 'rgb(255, 99, 132)',
                             radius: 6,
                             label: {
                                 enabled: true,
-                                content: `${(power150).toFixed(2)} kW`,
+                                content: `150% Power: ${power150.toFixed(2)} kW`,
                                 position: 'bottom'
                             }
                         }
@@ -566,22 +534,41 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
             },
             scales: {
                 x: {
-                type: 'linear',
-                title: { display: true, text: "Flow (GPM)" },
-                min: 0,
-                max: maxFlow,
-                ticks: {
-                    stepSize: 500,
+                    type: 'linear',
+                    title: { display: true, text: "Flow (GPM)" },
+                    min: 0,
+                    max: maxFlow,
+                    ticks: {
+                        stepSize: 500
+                    }
+                },
+                yHead: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: { display: true, text: "Head (m)" },
+                    min: 0
+                },
+                yPower: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: { display: true, text: "Power (kW)" },
+                    min: 0,
+                    grid: {
+                        drawOnChartArea: false // Prevents overlapping grid lines from the secondary axis
+                    }
                 }
-            },
-                y: { title: { display: true, text: "Power (kW)" }, min: 0 }
             }
         },
         plugins: [Chart.registry.getPlugin('annotation')]
     };
 
-    powerChart = new Chart(document.getElementById("pumpPowerChart"), configPower);
-
+    // Ensure target canvas exists in HTML: <canvas id="pumpCurveChart"></canvas>
+    if (window.pumpChartInstance) {
+        window.pumpChartInstance.destroy(); // Avoid overlapping charts on redraw
+    }
+    window.pumpChartInstance = new Chart(document.getElementById("pumpCurveChart"), config);
 }
 
 function generateFlowRange(start, end, points) {
