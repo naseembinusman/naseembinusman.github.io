@@ -445,26 +445,6 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
                 yAxisID: 'yHead'
             },
             {
-                label: `Head @ dMin (${dMin} mm)`,
-                data: mapToXY(flowSmooth, headMinSmooth),
-                borderColor: "rgba(255, 99, 132, 0.5)",
-                borderDash: [5, 5],
-                borderWidth: 1.5,
-                pointRadius: 0,
-                tension: 0.4,
-                yAxisID: 'yHead'
-            },
-            {
-                label: `Head @ dMax (${dMax} mm)`,
-                data: mapToXY(flowSmooth, headMaxSmooth),
-                borderColor: "rgba(255, 99, 132, 0.8)",
-                borderDash: [2, 2],
-                borderWidth: 1.5,
-                pointRadius: 0,
-                tension: 0.4,
-                yAxisID: 'yHead'
-            },
-            {
                 label: "Efficiency (%)",
                 data: mapToXY(flowSmooth, efficiencySmooth),
                 borderColor: "rgb(54, 162, 235)",
