@@ -418,7 +418,7 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
         const h = headSmooth[i];
         if (!p || p === 0) return 0;
         // Hydraulic Efficiency formula calculation scaled appropriately
-        const eff = ((f * h) / (p * 5308)) * 100; 
+        const eff = ((f * h) / (p * 1618)) * 100;
         return Math.min(Math.max(eff, 0), 100); // Clamp between 0-100%
     });
 
@@ -437,8 +437,7 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
             {
                 label: "Head (m) - Base",
                 data: mapToXY(flowSmooth, headSmooth),
-                borderColor: "rgb(255, 99, 132)",
-                backgroundColor: "rgba(255, 99, 132, 0.1)",
+                borderColor: "blue",                
                 borderWidth: 2,
                 pointRadius: 0,
                 tension: 0.4,
@@ -447,8 +446,7 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
             {
                 label: "Efficiency (%)",
                 data: mapToXY(flowSmooth, efficiencySmooth),
-                borderColor: "rgb(54, 162, 235)",
-                backgroundColor: "rgba(54, 162, 235, 0.1)",
+                borderColor: "green",
                 borderWidth: 2,
                 pointRadius: 0,
                 tension: 0.4,
@@ -457,8 +455,7 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
             {
                 label: "Power (kW)",
                 data: mapToXY(flowSmooth, powerSmooth),
-                borderColor: "rgb(75, 192, 192)",
-                backgroundColor: "rgba(75, 192, 192, 0.1)",
+                borderColor: "red",
                 borderWidth: 2,
                 pointRadius: 0,
                 tension: 0.3,
@@ -484,6 +481,48 @@ function plotPumpCurve(curve, dMin, dMax, base_D, ratedFlow) {
                 },
                 annotation: {
                     annotations: {
+                        // Vertical line at Rated Flow
+                        ratedFlowLine: {
+                            type: 'line',
+                            xMin: ratedFlow,
+                            xMax: ratedFlow,
+                            borderColor: 'rgb(255, 99, 132)',
+                            borderWidth: 2,
+                            borderDash: [6, 6], // Makes the line dotted
+                            label: {
+                                display: true,
+                                content: `100% Flow (${ratedFlow} GPM)`,
+                                position: 'start',
+                                rotation: 270,
+                                xAdjust: -7,
+                                textAlign: 'start',
+                                backgroundColor: 'transparent',
+                                color: 'rgb(255, 99, 132)',
+                                padding: 0,
+                                font: { size: 11 }
+                            }
+                        },
+                        // Vertical line at 150% Rated Flow
+                        flow150Line: {
+                            type: 'line',
+                            xMin: flow150,
+                            xMax: flow150,
+                            borderColor: 'rgb(255, 99, 132)',
+                            borderWidth: 2,
+                            borderDash: [6, 6], // Makes the line dotted
+                            label: {
+                                display: true,
+                                content: `150% Flow (${flow150} GPM)`,
+                                position: 'start',
+                                rotation: 270,
+                                xAdjust: -7,
+                                textAlign: 'start',
+                                backgroundColor: 'transparent',
+                                color: 'rgb(255, 99, 132)',
+                                padding: 0,
+                                font: { size: 11 }
+                            }
+                        },
                         ratedHead: {
                             type: 'point',
                             xScaleID: 'x',
