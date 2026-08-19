@@ -182,8 +182,7 @@ function computeEfficiency(q_gpm, head_m, power_kw){
   return (hydraulic_kw / power_kw) * 100;
 }
 
-function plotPumpCurve(flow, head, rflow, rhead) {
-    // Get the canvas context
+function plotPumpCurve(flow, head, power, rflow, rhead, rpower) {
     const canvas = document.getElementById('pumpChart');
     if (!canvas) {
         console.error("Canvas element with id 'pumpChart' not found.");
@@ -191,15 +190,24 @@ function plotPumpCurve(flow, head, rflow, rhead) {
     }
     const ctx = canvas.getContext('2d');
 
-    // 1. Prepare Curve Data
-    // Map the separate flow and head arrays into {x, y} objects
-    const shorterLength = flow.length;
-    const curvePoints = flow.slice(0, shorterLength).map((val, index) => {return { x: val, y: head[index] };});
+    // 1. Efficient coordinate mapping
+    const mapToXY = (xArr, yArr) => {
+        const result = [];
+        const len = Math.min(xArr.length, yArr.length);
+        for (let i = 0; i < len; i++) {
+            result.push({ x: xArr[i], y: yArr[i] });
+        }
+        return result;
+    };
 
-    const ratedPoint = [{ x: rflow, y: rhead }];
-    const rflow_150 = rflow * 1.5;
-    const rhead_150 = interpolateHead(flow, head, rflow_150);
-    const rated_150Point = [{ x: rflow_150, y: rhead_150 }];
+    // Calculate efficiency values (Flow: GPM, Head: meters, Power: kW)
+    const effArray = flow.map((f, i) => {
+        const p = power[i];
+        const h = head[i];
+        if (!p || p === 0) return 0;
+        const eff = ((f * h) / (p * 1618)) * 100; 
+        return Math.min(Math.max(eff, 0), 100);
+    });
 
     if (window.myPumpChart) {
         window.myPumpChart.destroy();
@@ -207,52 +215,115 @@ function plotPumpCurve(flow, head, rflow, rhead) {
     }
 
     window.myPumpChart = new Chart(ctx, {
-        type: 'scatter', 
+        type: 'line', // Changed to line with linear scale for significantly faster rendering
         data: {
             datasets: [
                 {
-                    label: 'Pump Curve',
-                    data: curvePoints,
-                    showLine: true,         // Connect points to make a curve
+                    label: 'Head',
+                    data: mapToXY(flow, head),
                     borderColor: 'blue',
-                    backgroundColor: 'rgba(0, 0, 255, 0.1)',
-                    tension: 0.4,           // Smooth cubic interpolation
-                    fill: false, pointRadius: 0
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.3,
+                    yAxisID: 'yHead'
+                },
+                {
+                    label: 'Efficiency (%)',
+                    data: mapToXY(flow, effArray),
+                    borderColor: 'green',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.3,
+                    yAxisID: 'yPercent'
+                },
+                {
+                    label: 'Power',
+                    data: mapToXY(flow, power),
+                    borderColor: 'red',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.3,
+                    yAxisID: 'yPower'
                 },
                 {
                     label: 'Rated Point',
-                    data: ratedPoint,
-                    backgroundColor: 'red',
+                    data: [{ x: rflow, y: rhead }],
+                    backgroundColor: 'rgb(255, 99, 132)',
                     borderColor: 'darkred',
-                    pointRadius: 8,         // Larger radius to annotate clearly
-                    pointStyle: 'circle'
-                },
-                {
-                    label: '150% of flow',
-                    data: rated_150Point,
-                    backgroundColor: 'red',
-                    borderColor: 'darkred',
-                    pointRadius: 8,         // Larger radius to annotate clearly
-                    pointStyle: 'circle'
-                }              
+                    pointRadius: 6,
+                    yAxisID: 'yHead'
+                }
             ]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true, // Fixed chart sizing issue
+            animation: false,          // Disables redundant animation render loops
+            interaction: {
+                mode: 'nearest',       // Fast performance interaction mode
+                intersect: false
+            },
             scales: {
                 x: {
                     type: 'linear',
                     position: 'bottom',
-                    title: { display: true, text: 'Flow' }
+                    title: { display: true, text: 'Flow Rate' }
                 },
-                y: {
-                    title: { display: true, text: 'Head' }
+                yHead: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: { display: true, text: 'Head' },
+                    min: 0
+                },
+                yPercent: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: { display: true, text: 'Efficiency (%)' },
+                    min: 0,
+                    max: 100,
+                    grid: { drawOnChartArea: false }
+                },
+                yPower: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: { display: true, text: 'Power' },
+                    min: 0,
+                    grid: { drawOnChartArea: false }
+                }
+            },
+            plugins: {
+                annotation: {
+                    annotations: {
+                        ratedFlowLine: {
+                            type: 'line',
+                            xMin: rflow,
+                            xMax: rflow,
+                            borderColor: 'rgb(255, 99, 132)',
+                            borderWidth: 2,
+                            borderDash: [6, 6],
+                            label: {
+                                display: true,
+                                content: `100% Flow (${Number(rflow)} gpm)`,
+                                position: 'center',
+                                rotation: -90,
+                                xAdjust: -12,
+                                textAlign: 'start',
+                                color: 'rgb(255, 99, 132)',
+                                backgroundColor: 'transparent',
+                                padding: 0,
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        }
+                    }
                 }
             }
-        }
+        },
+        plugins: [Chart.registry.getPlugin('annotation')]
     });
 }
-
 
 function predict() {
   const sel = document.getElementById('pumpSelect');
