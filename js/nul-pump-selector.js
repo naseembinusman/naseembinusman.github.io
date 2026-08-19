@@ -446,7 +446,7 @@ function predict() {
     document.getElementById('res_p_new').textContent = P_150 === 0 ? "N/A" : `${P_150.toFixed(2)} kW / ${(P_150 / 0.746).toFixed(2)} hp`;
     document.getElementById('res_eff_new').textContent = isNaN(eff_new) ? 'N/A' : eff_new.toFixed(2) + ' %';
     
-    plotPumpCurve(p_flow, p_head, q_input, H_curve_newRPM);
+    plotPumpCurve(p_flow, p_head, p_kw, q_input, H_curve_newRPM, P_curve_newRPM);
 
   }
   const curveCheckEl = document.getElementById('curveCheck');
