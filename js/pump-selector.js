@@ -1,8 +1,7 @@
 let minDB, maxDB;
 let impellerDB;
 let pumpsDB;
-let headChart = null;
-let pumpPowerChart = null;
+let pumpChart = null;
 
 function clearResults() {
 
@@ -12,9 +11,9 @@ function clearResults() {
     
     document.getElementById("resultsPanel").classList.remove("show");
     
-    if (pumpPowerChart) {
-        pumpPowerChart.destroy();
-        pumpPowerChart = null;
+    if (pumpChart) {
+        pumpChart.destroy();
+        pumpChart = null;
     }
 }
 
