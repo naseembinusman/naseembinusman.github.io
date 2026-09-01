@@ -10,11 +10,7 @@ function clearResults() {
 
     
     document.getElementById("resultsPanel").classList.remove("show");
-    
-    if (pumpChart) {
-        pumpChart.destroy();
-        pumpChart = null;
-    }
+    clearPumpChart();
 }
 
 async function loadXML(path) {
@@ -30,6 +26,39 @@ async function loadDatabases() {
     maxDB     = await loadXML("data/max.xml");
     impellerDB = await loadXML("data/impeller.xml");
     console.log("Database loaded!");
+}
+
+
+function clearPumpChart() {
+    // 1. Destroy Chart.js instance to release canvas context & listeners
+    if (window.pumpChartInstance) {
+        window.pumpChartInstance.destroy();
+        window.pumpChartInstance = null;
+    } else if (window.myPumpChart) {
+        window.myPumpChart.destroy();
+        window.myPumpChart = null;
+    }
+
+    // 2. Clear canvas pixels manually
+    const canvas = document.getElementById("pumpChart");
+    if (canvas) {
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+}
+
+function showPumpError(ErrMsg){
+        const resultsPanel = document.getElementById("resultsPanel");
+        const tbody = document.querySelector("#resultsTable tbody");
+        tbody.innerHTML = "";
+        const addRow = (param, value, warn = true) => {
+            const icon = warn ? "⚠️" : "";
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td>${param}</td><td class="${warn ? 'warning' : 'safe'}">${icon} ${value}</td>`;
+            tbody.appendChild(tr);
+        };
+        addRow("Error!", ErrMsg);
+        resultsPanel.classList.add("show"); 
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -213,10 +242,9 @@ function calculatePump(){
     );
 
     if (!model || isNaN(ratedFlow) || isNaN(ratedRPM) || isNaN(ratedHeadM)) {
-        return console.log("Please complete all inputs");
-        const resultsPanel = document.getElementById("resultsPanel");
-        const tbody = document.querySelector("#resultsTable tbody");
-        tbody.innerHTML = "Please complete all inputs";
+        console.log("Please complete all inputs");
+        showPumpError("Please complete all inputs");
+        return;
     }
 
     const baseRPM = getBaseSpeed(model);
@@ -225,10 +253,9 @@ function calculatePump(){
     const maxCurve = getPumpData(maxDB, model);
 
     if (!minCurve || !maxCurve) {
-        return console.log("Pump database not found");
-        const resultsPanel = document.getElementById("resultsPanel");
-        const tbody = document.querySelector("#resultsTable tbody");
-        tbody.innerHTML = "Pump database not found";
+        console.log("Pump database not found");
+        showPumpError("Pump database not found");
+        return;
     }
 
     let rminCurve = minCurve.map(point => {
@@ -264,9 +291,7 @@ function calculatePump(){
     const range = getImpellerRange(model);
     if (!range) {
         console.log("Impeller range not found for selected pump");
-        const resultsPanel = document.getElementById("resultsPanel");
-        const tbody = document.querySelector("#resultsTable tbody");
-        tbody.innerHTML = "Impeller range not found for selected pump";
+        showPumpError("Impeller range not found for selected pump");
         return;
     }
     const { dMin, dMax } = range;      
@@ -274,10 +299,9 @@ function calculatePump(){
     const impeller = calculateImpellerDiameter(ratedHeadM, Hmin, Hmax, dMin, dMax);
 
     if (!impeller) {
-        return console.log("Required head is outside impeller range");
-        const resultsPanel = document.getElementById("resultsPanel");
-        const tbody = document.querySelector("#resultsTable tbody");
-        tbody.innerHTML = "Required head is outside impeller range";
+        console.log("Required head is outside impeller range");
+        showPumpError("Required head is outside impeller range");
+        return;
     }
 
     let D = 0.0;
@@ -305,9 +329,7 @@ function calculatePump(){
 
     if (!range) {
         console.log("Impeller range not found");
-        const resultsPanel = document.getElementById("resultsPanel");
-        const tbody = document.querySelector("#resultsTable tbody");
-        tbody.innerHTML = "Impeller range not found for selected pump";
+        showPumpError("Impeller range not found");
         return;
     }
 
@@ -654,9 +676,8 @@ function interpolateDi(flowArr, headArr, targetFlow, base_D = 1, D = 1) {
 function toPolynomial(flow, head, degree = 3, points = 300) {
     if (flow.length !== head.length) {
         console.log("Flow and head arrays must have the same length");
-        const resultsPanel = document.getElementById("resultsPanel");
-        const tbody = document.querySelector("#resultsTable tbody");
-        tbody.innerHTML = "Internal error!";
+        showPumpError("Flow and head arrays must have the same length");
+        return;
     }
 
     const x = flow.map(Number);
@@ -680,9 +701,8 @@ function toPolynomial(flow, head, degree = 3, points = 300) {
 function toPolynomialP(flow, power, degree = 3, points = 300) {
     if (flow.length !== power.length) {
         console.log("Flow and power arrays must have the same length");  
-        const resultsPanel = document.getElementById("resultsPanel");
-        const tbody = document.querySelector("#resultsTable tbody");
-        tbody.innerHTML = "Internal error!";
+        showPumpError("Flow and power arrays must have the same length");
+        return;
     }
 
     const x = flow.map(Number);
