@@ -275,6 +275,9 @@ function calculatePump(){
 
     if (!impeller) {
         return console.log("Required head is outside impeller range");
+        const resultsPanel = document.getElementById("resultsPanel");
+        const tbody = document.querySelector("#resultsTable tbody");
+        tbody.innerHTML = "Required head is outside impeller range";
     }
 
     let D = 0.0;
