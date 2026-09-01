@@ -356,11 +356,11 @@ function predict() {
   let D = 0.0;
   let D_Status = "OK";
 
-  let p_flow =[];
+  let p_flow = [];
   let p_head = [];
   let p_kw = [];
 
-  for (i=0;i < t_flow.length;i++){
+  for (let i = 0; i < t_flow.length; i++){
     p_flow[i] = t_flow[i];
     p_head[i] = t_head[i];
     p_kw[i] = t_kw[i];    
@@ -370,10 +370,10 @@ function predict() {
 
   const D_Ratio = D / pump.baseD;
   
-  for (i=0;i < p_flow.length;i++){
+  for (let i = 0; i < p_flow.length; i++){
     p_flow[i] = p_flow[i] * D_Ratio * ratioRPM;
-    p_head[i] = p_head[i] * Math.pow(D_Ratio,2) * Math.pow(ratioRPM,2);
-    p_kw[i] = p_kw[i] * Math.pow(D_Ratio,3) * Math.pow(ratioRPM,3);
+    p_head[i] = p_head[i] * Math.pow(D_Ratio, 2) * Math.pow(ratioRPM, 2);
+    p_kw[i] = p_kw[i] * Math.pow(D_Ratio, 3) * Math.pow(ratioRPM, 3);
   }  
 
   const newScaled = interpolateHP(p_flow, p_head, p_kw, q_input);
@@ -381,18 +381,17 @@ function predict() {
   let P_curve_newRPM = newScaled.kw_p;
   let H_150 = 0.00;
   let P_150 = 0.00;
-  const interp150 = interpolateHP(p_flow, p_head, p_kw, q_input*1.5);
-  if (interp150.note === "below_range" || interp150.note === "above_range")
-  {
+  const interp150 = interpolateHP(p_flow, p_head, p_kw, q_input * 1.5);
+  
+  if (interp150.note === "below_range" || interp150.note === "above_range") {
     H_150 = 0.00;
     P_150 = 0.00;
-
-  } else{
-      H_150 = interp150.head_m;
-      P_150 = interp150.kw_p;
+  } else {
+    H_150 = interp150.head_m;
+    P_150 = interp150.kw_p;
   }  
   
-  const eff_new = computeEfficiency(q_input*1.5,H_150, P_150);
+  const eff_new = computeEfficiency(q_input * 1.5, H_150, P_150);
   const eff_base = computeEfficiency(q_input, H_curve_newRPM, P_curve_newRPM);
 
   let h_new = H_curve_newRPM;
@@ -410,10 +409,9 @@ function predict() {
   const H_err = h_input - H_curve_newRPM;
 
   if (Math.abs(H_err) > 1){
-    if(h_input < H_curve_newRPM){
+    if (h_input < H_curve_newRPM) {
       D_Status = "Below the range";      
-    }
-    else{
+    } else {
       D_Status = "Above the range";
     }
   }
@@ -422,16 +420,12 @@ function predict() {
   statusEl.innerHTML = '';
   if (interp.note === 'below_range') {
     statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is below the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM).</div>`;    
-    console.log("below_range");
-  } else if(interp.note === 'above_range'){
+  } else if (interp.note === 'above_range') {
     statusEl.innerHTML += `<div class="warn">Note: the entered Flow (${q_input.toFixed(2)} GPM) is above the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM).</div>`;
-    console.log("above_range");
-  } else if(D_Status === 'Above the range'){
-    statusEl.innerHTML += `<div class="warn">Note: the entered Pressure (${(h_input*0.0981).toFixed(2)} bar) is above the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM).</div>`;
-    console.log("Above the range");
+  } else if (D_Status === 'Above the range') {
+    statusEl.innerHTML += `<div class="warn">Note: the entered Pressure (${(h_input * 0.0981).toFixed(2)} bar) is above the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM).</div>`;
   } else if (D_Status === 'Below the range') {
-    statusEl.innerHTML += `<div class="warn">Note: the entered Pressure (${(h_input*0.0981).toFixed(2)} bar) is below the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM).</div>`;
-    console.log("Below the range");
+    statusEl.innerHTML += `<div class="warn">Note: the entered Pressure (${(h_input * 0.0981).toFixed(2)} bar) is below the pump curve range (${minG.toFixed(2)}—${maxG.toFixed(2)} GPM).</div>`;
   } else {
     statusEl.innerHTML += `<div class="ok">The calculated impeller diameter is ${D.toFixed(0)} mm.</div>`;
     document.getElementById('results').style.display = 'block';
@@ -441,14 +435,16 @@ function predict() {
     document.getElementById('res_p_base').textContent = `${P_curve_newRPM.toFixed(3)} kW / ${(P_curve_newRPM / 0.746).toFixed(3)} hp`;
     document.getElementById('res_eff_base').textContent = isNaN(eff_base) ? 'N/A' : eff_base.toFixed(2) + ' %';
 
-    document.getElementById('res_q_new').textContent = H_150 === 0 || P_150 === 0 ? "N/A" : `${q_input*1.5.toFixed(2)} GPM`;
+    // FIX: Wrapped expression in parentheses before calling .toFixed(2)
+    document.getElementById('res_q_new').textContent = H_150 === 0 || P_150 === 0 ? "N/A" : `${(q_input * 1.5).toFixed(2)} GPM`;
     document.getElementById('res_h_new').textContent = H_150 === 0 ? "N/A" : `${H_150.toFixed(2)} m / ${(H_150 * 0.0981).toFixed(2)} bar`;
     document.getElementById('res_p_new').textContent = P_150 === 0 ? "N/A" : `${P_150.toFixed(2)} kW / ${(P_150 / 0.746).toFixed(2)} hp`;
     document.getElementById('res_eff_new').textContent = isNaN(eff_new) ? 'N/A' : eff_new.toFixed(2) + ' %';
     
+    // Render chart
     plotPumpCurve(p_flow, p_head, p_kw, q_input, H_curve_newRPM, P_curve_newRPM);
-
   }
+
   const curveCheckEl = document.getElementById('curveCheck');
   document.getElementById('curveCheckCard').style.display = 'block';
 
