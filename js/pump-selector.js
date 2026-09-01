@@ -172,6 +172,10 @@ function getValueAtFlow(curve, flow, key) {
         }
     }
     console.warn("Flow outside curve range");
+    const resultsPanel = document.getElementById("resultsPanel");
+    const tbody = document.querySelector("#resultsTable tbody");
+    tbody.innerHTML = "Flow outside curve range";
+
     return null;
 }
 
@@ -211,6 +215,9 @@ function calculatePump(){
 
     if (!model || isNaN(ratedFlow) || isNaN(ratedRPM) || isNaN(ratedHeadM)) {
         return console.log("Please complete all inputs");
+        const resultsPanel = document.getElementById("resultsPanel");
+        const tbody = document.querySelector("#resultsTable tbody");
+        tbody.innerHTML = "Please complete all inputs";
     }
 
     const baseRPM = getBaseSpeed(model);
@@ -220,6 +227,9 @@ function calculatePump(){
 
     if (!minCurve || !maxCurve) {
         return console.log("Pump database not found");
+        const resultsPanel = document.getElementById("resultsPanel");
+        const tbody = document.querySelector("#resultsTable tbody");
+        tbody.innerHTML = "Pump database not found";
     }
 
     let rminCurve = minCurve.map(point => {
@@ -247,11 +257,17 @@ function calculatePump(){
 
     if (Hmin === null || Hmax === null) {
         return console.log("Rated flow is outside pump curve range");
+        const resultsPanel = document.getElementById("resultsPanel");
+        const tbody = document.querySelector("#resultsTable tbody");
+        tbody.innerHTML = "Rated flow is outside pump curve range";
     }
 
     const range = getImpellerRange(model);
     if (!range) {
         console.log("Impeller range not found for selected pump");
+        const resultsPanel = document.getElementById("resultsPanel");
+        const tbody = document.querySelector("#resultsTable tbody");
+        tbody.innerHTML = "Impeller range not found for selected pump";
         return;
     }
     const { dMin, dMax } = range;      
@@ -287,6 +303,9 @@ function calculatePump(){
 
     if (!range) {
         console.log("Impeller range not found");
+        const resultsPanel = document.getElementById("resultsPanel");
+        const tbody = document.querySelector("#resultsTable tbody");
+        tbody.innerHTML = "Impeller range not found for selected pump";
         return;
     }
 
@@ -633,6 +652,9 @@ function interpolateDi(flowArr, headArr, targetFlow, base_D = 1, D = 1) {
 function toPolynomial(flow, head, degree = 3, points = 300) {
     if (flow.length !== head.length) {
         console.log("Flow and head arrays must have the same length");
+        const resultsPanel = document.getElementById("resultsPanel");
+        const tbody = document.querySelector("#resultsTable tbody");
+        tbody.innerHTML = "Internal error!";
     }
 
     const x = flow.map(Number);
@@ -655,7 +677,10 @@ function toPolynomial(flow, head, degree = 3, points = 300) {
 
 function toPolynomialP(flow, power, degree = 3, points = 300) {
     if (flow.length !== power.length) {
-        console.log("Flow and power arrays must have the same length");        
+        console.log("Flow and power arrays must have the same length");  
+        const resultsPanel = document.getElementById("resultsPanel");
+        const tbody = document.querySelector("#resultsTable tbody");
+        tbody.innerHTML = "Internal error!";
     }
 
     const x = flow.map(Number);
